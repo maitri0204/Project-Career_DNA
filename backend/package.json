@@ -1,0 +1,38 @@
+{
+  "name": "psychometric-assessment-backend",
+  "version": "1.0.0",
+  "description": "Backend for Psychometric Assessment application",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon src/index.ts",
+    "lint": "eslint src/**/*.ts",
+    "seed:cognitive": "ts-node src/scripts/seedCognitiveQuestions.ts",
+    "seed:aptitude": "ts-node src/scripts/seedAptitudeQuestions.ts",
+    "seed:all": "npm run seed:cognitive && npm run seed:aptitude"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.9.5",
+    "nodemailer": "^8.0.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.10.5",
+    "@types/nodemailer": "^7.0.11",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}
