@@ -26,6 +26,7 @@ export interface Question {
   questionText: string;
   passage?: string;
   options: QuestionOption[];
+  correctAnswer?: string;
 }
 
 export interface TestAttempt {

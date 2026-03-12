@@ -68,6 +68,28 @@ export const questionAPI = {
 
   getByTestTypeAdmin: (testType: "COGNITIVE" | "APTITUDE") =>
     api.get(`/questions/admin/${testType}`),
+
+  add: (data: {
+    testType: string;
+    partNumber: number;
+    partName: string;
+    questionText: string;
+    passage?: string;
+    options: { label: string; text: string }[];
+    correctAnswer: string;
+  }) => api.post("/questions", data),
+
+  update: (
+    id: string,
+    data: {
+      questionText?: string;
+      options?: { label: string; text: string }[];
+      correctAnswer?: string;
+      passage?: string;
+    }
+  ) => api.put(`/questions/${id}`, data),
+
+  remove: (id: string) => api.delete(`/questions/${id}`),
 };
 
 // ─── Test API (student) ───
