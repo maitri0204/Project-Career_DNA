@@ -19,7 +19,7 @@ export interface QuestionOption {
 
 export interface Question {
   _id: string;
-  testType: "COGNITIVE" | "APTITUDE";
+  testType: string;
   partNumber: number;
   partName: string;
   questionNumber: number;
@@ -29,18 +29,19 @@ export interface Question {
   correctAnswer?: string;
 }
 
+export interface SectionResult {
+  testType: string;
+  answers: Record<string, string>;
+  completed: boolean;
+  score: number;
+  timeSpent: number;
+}
+
 export interface TestAttempt {
   _id: string;
   student: User | string;
   status: "IN_PROGRESS" | "COMPLETED";
-  cognitiveAnswers: Record<string, string>;
-  aptitudeAnswers: Record<string, string>;
-  cognitiveCompleted: boolean;
-  aptitudeCompleted: boolean;
-  cognitiveScore?: number;
-  aptitudeScore?: number;
-  cognitiveTimeSpent?: number;
-  aptitudeTimeSpent?: number;
+  sections: SectionResult[];
   totalScore?: number;
   submittedAt?: string;
   createdAt?: string;
@@ -50,9 +51,8 @@ export interface TestAttempt {
 export interface TestResult {
   _id: string;
   student: User | string;
+  sections: SectionResult[];
   totalScore: number;
-  cognitiveScore?: number;
-  aptitudeScore?: number;
   status: "IN_PROGRESS" | "COMPLETED";
   submittedAt: string;
   createdAt?: string;

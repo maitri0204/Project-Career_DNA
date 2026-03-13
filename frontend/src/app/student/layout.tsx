@@ -48,8 +48,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const [user, setUser] = useState<User | null>(null);
 
   // Test-taking pages render without sidebar/navbar
-  const isTestActive =
-    pathname.includes("/test/start") || pathname.includes("/test/sections");
+  const isTestActive = pathname.includes("/test/sections");
 
   useEffect(() => {
     const token = localStorage.getItem("token");

@@ -9,10 +9,11 @@ export const getQuestionsByTestType = async (
     const testType = req.params.testType as string;
     const type = testType.toUpperCase();
 
-    if (!["COGNITIVE", "APTITUDE"].includes(type)) {
+    const VALID_TYPES = ["COGNITIVE", "APTITUDE", "PERSONALITY", "CAREER_INTEREST", "EMOTIONAL_INTELLIGENCE", "LEARNING_STYLE", "BEHAVIORAL_SOCIAL", "STRESS_RESILIENCE"];
+    if (!VALID_TYPES.includes(type)) {
       res
         .status(400)
-        .json({ message: 'Invalid test type. Use "cognitive" or "aptitude".' });
+        .json({ message: "Invalid test type." });
       return;
     }
 
@@ -35,7 +36,8 @@ export const getQuestionsByTestTypeAdmin = async (
     const testType = req.params.testType as string;
     const type = testType.toUpperCase();
 
-    if (!["COGNITIVE", "APTITUDE"].includes(type)) {
+    const VALID_TYPES = ["COGNITIVE", "APTITUDE", "PERSONALITY", "CAREER_INTEREST", "EMOTIONAL_INTELLIGENCE", "LEARNING_STYLE", "BEHAVIORAL_SOCIAL", "STRESS_RESILIENCE"];
+    if (!VALID_TYPES.includes(type)) {
       res.status(400).json({ message: "Invalid test type." });
       return;
     }
@@ -66,7 +68,8 @@ export const addQuestion = async (
     }
 
     const type = testType.toUpperCase();
-    if (!["COGNITIVE", "APTITUDE"].includes(type)) {
+    const VALID_TYPES = ["COGNITIVE", "APTITUDE", "PERSONALITY", "CAREER_INTEREST", "EMOTIONAL_INTELLIGENCE", "LEARNING_STYLE", "BEHAVIORAL_SOCIAL", "STRESS_RESILIENCE"];
+    if (!VALID_TYPES.includes(type)) {
       res.status(400).json({ message: "Invalid test type." });
       return;
     }

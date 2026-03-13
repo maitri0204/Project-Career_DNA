@@ -63,10 +63,10 @@ export const authAPI = {
 
 // ─── Question API ───
 export const questionAPI = {
-  getByTestType: (testType: "COGNITIVE" | "APTITUDE") =>
+  getByTestType: (testType: string) =>
     api.get(`/questions/${testType}`),
 
-  getByTestTypeAdmin: (testType: "COGNITIVE" | "APTITUDE") =>
+  getByTestTypeAdmin: (testType: string) =>
     api.get(`/questions/admin/${testType}`),
 
   add: (data: {
@@ -96,12 +96,14 @@ export const questionAPI = {
 export const testAPI = {
   start: () => api.post("/test/start"),
 
+  getInProgress: () => api.get("/test/in-progress"),
+
   getAttempt: (id: string) => api.get(`/test/attempt/${id}`),
 
   submitSection: (
     id: string,
     data: {
-      testType: "COGNITIVE" | "APTITUDE";
+      testType: string;
       answers: Record<string, string>;
       timeSpent: number;
     }

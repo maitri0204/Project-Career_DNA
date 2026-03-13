@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface IQuestion extends Document {
-  testType: "COGNITIVE" | "APTITUDE";
+  testType: "COGNITIVE" | "APTITUDE" | "PERSONALITY" | "CAREER_INTEREST" | "EMOTIONAL_INTELLIGENCE" | "LEARNING_STYLE" | "BEHAVIORAL_SOCIAL" | "STRESS_RESILIENCE";
   partNumber: number;
   partName: string;
   questionNumber: number;
@@ -15,7 +15,7 @@ const questionSchema = new Schema<IQuestion>(
   {
     testType: {
       type: String,
-      enum: ["COGNITIVE", "APTITUDE"],
+      enum: ["COGNITIVE", "APTITUDE", "PERSONALITY", "CAREER_INTEREST", "EMOTIONAL_INTELLIGENCE", "LEARNING_STYLE", "BEHAVIORAL_SOCIAL", "STRESS_RESILIENCE"],
       required: true,
     },
     partNumber: { type: Number, required: true },

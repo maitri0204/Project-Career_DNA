@@ -5,28 +5,21 @@ import toast from "react-hot-toast";
 import { questionAPI } from "@/lib/api";
 import { Question } from "@/types";
 
-// ── Part metadata per test type ──
-const COGNITIVE_PARTS = [
-  { num: 1, name: "Verbal Reasoning", color: "#3b82f6" },
-  { num: 2, name: "Numerical Reasoning", color: "#8b5cf6" },
-  { num: 3, name: "Spatial Reasoning", color: "#10b981" },
-  { num: 4, name: "Memory & Processing Speed", color: "#f97316" },
-] as const;
-
-const APTITUDE_PARTS = [
-  { num: 1, name: "Logical Reasoning", color: "#3b82f6" },
-  { num: 2, name: "Numerical Aptitude", color: "#8b5cf6" },
-  { num: 3, name: "Verbal Aptitude", color: "#10b981" },
-  { num: 4, name: "Mechanical Aptitude", color: "#f97316" },
-  { num: 5, name: "Creativity", color: "#ec4899" },
-] as const;
-
-type TestTypeToggle = "COGNITIVE" | "APTITUDE";
+const TEST_TYPES = [
+  { value: "COGNITIVE", label: "Cognitive Ability", color: "#7c3aed" },
+  { value: "APTITUDE", label: "Aptitude Tests", color: "#0891b2" },
+  { value: "PERSONALITY", label: "Personality", color: "#e11d48" },
+  { value: "CAREER_INTEREST", label: "Career Interest", color: "#d97706" },
+  { value: "EMOTIONAL_INTELLIGENCE", label: "Emotional Intelligence", color: "#ec4899" },
+  { value: "LEARNING_STYLE", label: "Learning Style", color: "#059669" },
+  { value: "BEHAVIORAL_SOCIAL", label: "Behavioral & Social", color: "#2563eb" },
+  { value: "STRESS_RESILIENCE", label: "Stress & Resilience", color: "#0d9488" },
+];
 
 export default function AdminQuestionsPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
-  const [testType, setTestType] = useState<TestTypeToggle>("COGNITIVE");
+  const [testType, setTestType] = useState("COGNITIVE");
   const [activeTab, setActiveTab] = useState(1);
 
   // Edit state
@@ -41,6 +34,8 @@ export default function AdminQuestionsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addText, setAddText] = useState("");
   const [addPassage, setAddPassage] = useState("");
+  const [addPartNumber, setAddPartNumber] = useState(1);
+  const [addPartName, setAddPartName] = useState("");
   const [addOptions, setAddOptions] = useState([
     { label: "A", text: "" },
     { label: "B", text: "" },
@@ -50,7 +45,7 @@ export default function AdminQuestionsPage() {
   const [addCorrectAnswer, setAddCorrectAnswer] = useState("A");
   const [adding, setAdding] = useState(false);
 
-  const PARTS = testType === "COGNITIVE" ? COGNITIVE_PARTS : APTITUDE_PARTS;
+  const currentTypeConfig = TEST_TYPES.find((t) => t.value === testType)!;
 
   const fetchQuestions = () => {
     setLoading(true);
@@ -63,18 +58,25 @@ export default function AdminQuestionsPage() {
 
   useEffect(() => {
     fetchQuestions();
+    setActiveTab(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testType]);
 
-  // Reset active tab when test type changes
-  useEffect(() => {
-    setActiveTab(1);
-  }, [testType]);
+  // Dynamically detect parts from questions
+  const partMap = new Map<number, { name: string; questions: Question[] }>();
+  questions.forEach((q) => {
+    if (!partMap.has(q.partNumber)) {
+      partMap.set(q.partNumber, { name: q.partName, questions: [] });
+    }
+    partMap.get(q.partNumber)!.questions.push(q);
+  });
+  const parts = Array.from(partMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([num, val]) => ({ num, ...val }));
 
-  const activePart = PARTS.find((p) => p.num === activeTab)!;
-  const partQuestions = questions
-    .filter((q) => q.partNumber === activeTab)
-    .sort((a, b) => a.questionNumber - b.questionNumber);
+  const activePart = parts.find((p) => p.num === activeTab) || parts[0];
+  const partQuestions =
+    activePart?.questions?.sort((a, b) => a.questionNumber - b.questionNumber) || [];
 
   // ── Edit handlers ──
   const handleEditOpen = (q: Question) => {
@@ -120,6 +122,8 @@ export default function AdminQuestionsPage() {
   const openAddModal = () => {
     setAddText("");
     setAddPassage("");
+    setAddPartNumber(activePart?.num || 1);
+    setAddPartName(activePart?.name || "");
     setAddOptions([
       { label: "A", text: "" },
       { label: "B", text: "" },
@@ -131,8 +135,8 @@ export default function AdminQuestionsPage() {
   };
 
   const handleAdd = async () => {
-    if (!addText.trim()) {
-      toast.error("Please enter a question text");
+    if (!addText.trim() || !addPartName.trim()) {
+      toast.error("Please fill in all required fields");
       return;
     }
     if (addOptions.some((o) => !o.text.trim())) {
@@ -144,8 +148,8 @@ export default function AdminQuestionsPage() {
     try {
       await questionAPI.add({
         testType,
-        partNumber: activeTab,
-        partName: activePart.name,
+        partNumber: addPartNumber,
+        partName: addPartName.trim(),
         questionText: addText.trim(),
         passage: addPassage.trim() || undefined,
         options: addOptions,
@@ -168,33 +172,20 @@ export default function AdminQuestionsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Question Bank</h1>
           <p className="text-gray-500 mt-1">
-            {questions.length} questions &middot;{" "}
-            {testType === "COGNITIVE" ? "Cognitive Ability" : "Aptitude"} Assessment
+            {questions.length} questions &middot; {currentTypeConfig.label}
           </p>
         </div>
-        {/* COGNITIVE / APTITUDE Toggle */}
-        <div className="flex items-center bg-gray-100 rounded-xl p-1">
-          <button
-            onClick={() => setTestType("COGNITIVE")}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-              testType === "COGNITIVE"
-                ? "bg-white text-blue-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Cognitive
-          </button>
-          <button
-            onClick={() => setTestType("APTITUDE")}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-              testType === "APTITUDE"
-                ? "bg-white text-purple-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Aptitude
-          </button>
-        </div>
+        <select
+          value={testType}
+          onChange={(e) => setTestType(e.target.value)}
+          className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[220px]"
+        >
+          {TEST_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {loading ? (
@@ -204,46 +195,51 @@ export default function AdminQuestionsPage() {
       ) : (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden min-h-[600px] flex flex-col">
           {/* TOP: Horizontal Part Tabs */}
-          <div className="border-b border-gray-200 bg-white flex-shrink-0">
-            <nav className="flex overflow-x-auto">
-              {PARTS.map((part) => {
-                const count = questions.filter((q) => q.partNumber === part.num).length;
-                const isActive = activeTab === part.num;
-                return (
-                  <button
-                    key={part.num}
-                    onClick={() => setActiveTab(part.num)}
-                    className={`relative flex-1 min-w-[140px] flex flex-col items-center gap-1 px-4 py-3.5 text-sm font-medium transition-all whitespace-nowrap ${
-                      isActive
-                        ? "text-gray-900"
-                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    {isActive && (
-                      <span
-                        className="absolute bottom-0 left-0 right-0 h-[2.5px] rounded-t-full"
-                        style={{ backgroundColor: part.color }}
-                      />
-                    )}
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                        style={{
-                          backgroundColor: isActive ? part.color : part.color + "99",
-                        }}
-                      >
-                        P{part.num}
+          {parts.length > 0 && (
+            <div className="border-b border-gray-200 bg-white flex-shrink-0">
+              <nav className="flex overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+                {parts.map((part) => {
+                  const isActive = activePart?.num === part.num;
+                  return (
+                    <button
+                      key={part.num}
+                      onClick={() => setActiveTab(part.num)}
+                      className={`relative flex-shrink-0 flex flex-col items-center gap-1 px-6 py-3.5 text-sm font-medium transition-all whitespace-nowrap ${
+                        isActive
+                          ? "text-gray-900"
+                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {isActive && (
+                        <span
+                          className="absolute bottom-0 left-0 right-0 h-[2.5px] rounded-t-full"
+                          style={{ backgroundColor: currentTypeConfig.color }}
+                        />
+                      )}
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                          style={{
+                            backgroundColor: isActive
+                              ? currentTypeConfig.color
+                              : currentTypeConfig.color + "99",
+                          }}
+                        >
+                          P{part.num}
+                        </span>
+                        <span className={isActive ? "font-semibold" : ""}>
+                          {part.name}
+                        </span>
                       </span>
-                      <span className={isActive ? "font-semibold" : ""}>
-                        {part.name}
+                      <span className="text-[11px] text-gray-400">
+                        {part.questions.length} Qs
                       </span>
-                    </span>
-                    <span className="text-[11px] text-gray-400">{count} Qs</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
 
           {/* Panel header + questions */}
           <div className="flex-1 flex flex-col min-w-0">
@@ -251,7 +247,9 @@ export default function AdminQuestionsPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div>
                 <h2 className="font-bold text-gray-900">
-                  Part {activePart.num}: {activePart.name}
+                  {activePart
+                    ? `Part ${activePart.num}: ${activePart.name}`
+                    : "No questions yet"}
                 </h2>
                 <p className="text-sm text-gray-400 mt-0.5">
                   {partQuestions.length} question{partQuestions.length !== 1 ? "s" : ""}
@@ -260,7 +258,7 @@ export default function AdminQuestionsPage() {
               <button
                 onClick={openAddModal}
                 className="flex items-center gap-2 px-4 py-2 text-white text-sm font-semibold rounded-xl transition hover:opacity-90"
-                style={{ backgroundColor: activePart.color }}
+                style={{ backgroundColor: currentTypeConfig.color }}
               >
                 <svg
                   className="w-4 h-4"
@@ -295,7 +293,7 @@ export default function AdminQuestionsPage() {
                     {/* Question number badge */}
                     <span
                       className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold mt-0.5"
-                      style={{ backgroundColor: activePart.color }}
+                      style={{ backgroundColor: currentTypeConfig.color }}
                     >
                       {q.questionNumber}
                     </span>
@@ -479,20 +477,62 @@ export default function AdminQuestionsPage() {
             <div className="flex items-center gap-3 mb-5">
               <span
                 className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                style={{ backgroundColor: activePart.color }}
+                style={{ backgroundColor: currentTypeConfig.color }}
               >
-                P{activeTab}
+                +
               </span>
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Add New Question</h3>
-                <p className="text-sm text-gray-500">
-                  {activePart.name} &middot;{" "}
-                  {testType === "COGNITIVE" ? "Cognitive" : "Aptitude"}
-                </p>
+                <p className="text-sm text-gray-500">{currentTypeConfig.label}</p>
               </div>
             </div>
 
             <div className="space-y-4">
+              {/* Part number & name */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Part Number
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={addPartNumber}
+                    onChange={(e) => setAddPartNumber(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Part Name
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={addPartName}
+                    onChange={(e) => setAddPartName(e.target.value)}
+                    placeholder="e.g. Verbal Reasoning"
+                  />
+                  {parts.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {parts.map((p) => (
+                        <button
+                          key={p.num}
+                          type="button"
+                          onClick={() => {
+                            setAddPartNumber(p.num);
+                            setAddPartName(p.name);
+                          }}
+                          className="text-xs px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                        >
+                          P{p.num}: {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Question text */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -575,9 +615,9 @@ export default function AdminQuestionsPage() {
               </button>
               <button
                 onClick={handleAdd}
-                disabled={adding || !addText.trim() || addOptions.some((o) => !o.text.trim())}
+                disabled={adding || !addText.trim() || !addPartName.trim() || addOptions.some((o) => !o.text.trim())}
                 className="px-5 py-2.5 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50 hover:opacity-90"
-                style={{ backgroundColor: activePart.color }}
+                style={{ backgroundColor: currentTypeConfig.color }}
               >
                 {adding ? "Adding…" : "Add Question"}
               </button>

@@ -21,6 +21,17 @@ interface PartInfo {
   questions: Question[];
 }
 
+const SECTION_NAMES: Record<string, string> = {
+  COGNITIVE: "Cognitive Ability Assessment",
+  APTITUDE: "Aptitude Tests",
+  PERSONALITY: "Personality Assessment",
+  CAREER_INTEREST: "Career Interest Assessment",
+  EMOTIONAL_INTELLIGENCE: "Emotional Intelligence Assessment",
+  LEARNING_STYLE: "Learning Style Assessment",
+  BEHAVIORAL_SOCIAL: "Behavioral and Social Skills Assessment",
+  STRESS_RESILIENCE: "Stress and Resilience Assessment",
+};
+
 export default function TestSectionPage({
   params,
 }: {
@@ -30,7 +41,7 @@ export default function TestSectionPage({
   const searchParams = useSearchParams();
   const attemptId = searchParams.get("attemptId") || "";
 
-  const [testType, setTestType] = useState<"COGNITIVE" | "APTITUDE">("COGNITIVE");
+  const [testType, setTestType] = useState<string>("");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [parts, setParts] = useState<PartInfo[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -48,7 +59,7 @@ export default function TestSectionPage({
   // ── Resolve params ──
   useEffect(() => {
     params.then((p) => {
-      const type = p.testType.toUpperCase() as "COGNITIVE" | "APTITUDE";
+      const type = p.testType.toUpperCase();
       setTestType(type);
     });
   }, [params]);
@@ -162,10 +173,10 @@ export default function TestSectionPage({
 
         // Restore existing answers (prefer localStorage if more complete)
         const attempt: TestAttempt = attemptRes.data.attempt;
-        const existing =
-          testType === "COGNITIVE"
-            ? attempt.cognitiveAnswers
-            : attempt.aptitudeAnswers;
+        const sectionData = attempt.sections?.find(
+          (s: { testType: string }) => s.testType === testType
+        );
+        const existing = sectionData?.answers || {};
 
         const localKey = `autosave_${testType}_${attemptId}`;
         const localSaved = localStorage.getItem(localKey);
@@ -238,7 +249,7 @@ export default function TestSectionPage({
       // Clear auto-save
       localStorage.removeItem(`autosave_${testType}_${attemptId}`);
 
-      toast.success(`${testType === "COGNITIVE" ? "Cognitive" : "Aptitude"} section submitted!`);
+      toast.success(`${SECTION_NAMES[testType] || testType} submitted!`);
       router.push("/student/test/start");
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -351,9 +362,7 @@ export default function TestSectionPage({
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
         <div>
           <h1 className="text-gray-900 font-bold text-xl leading-tight">
-            {testType === "COGNITIVE"
-              ? "Cognitive Ability Assessment"
-              : "Aptitude Tests"}
+            {SECTION_NAMES[testType] || testType}
           </h1>
           <p className="text-gray-500 text-sm mt-0.5">
             Answer all {questions.length} questions — every question is compulsory

@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import Question from "../models/Question";
-import TestResult from "../models/TestResult";
+import TestResult, { SECTION_ORDER } from "../models/TestResult";
 
 // Start a new test attempt or return existing in-progress one
 export const startTest = async (
@@ -11,7 +11,6 @@ export const startTest = async (
   try {
     const userId = req.user!.id;
 
-    // Check for existing in-progress test
     let attempt = await TestResult.findOne({
       student: userId,
       status: "IN_PROGRESS",
@@ -22,12 +21,29 @@ export const startTest = async (
       return;
     }
 
-    // Create new attempt
     attempt = await TestResult.create({ student: userId });
     res.status(201).json({ attempt });
   } catch (error) {
     console.error("Error starting test:", error);
     res.status(500).json({ message: "Failed to start test" });
+  }
+};
+
+// Check for in-progress attempt (for resume on dashboard)
+export const getInProgressAttempt = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const attempt = await TestResult.findOne({
+      student: userId,
+      status: "IN_PROGRESS",
+    });
+    res.json({ attempt: attempt || null });
+  } catch (error) {
+    console.error("Error checking in-progress test:", error);
+    res.status(500).json({ message: "Failed to check in-progress test" });
   }
 };
 
@@ -53,17 +69,19 @@ export const getAttempt = async (
   }
 };
 
-// Submit a section (cognitive or aptitude)
+// Submit a section
 export const submitSection = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { sectionType, answers, timeSpent } = req.body;
+    const { testType, answers, timeSpent } = req.body;
     const userId = req.user!.id;
 
-    if (!["cognitive", "aptitude"].includes(sectionType)) {
+    // Validate test type
+    const sectionIndex = SECTION_ORDER.indexOf(testType);
+    if (sectionIndex === -1) {
       res.status(400).json({ message: "Invalid section type" });
       return;
     }
@@ -79,25 +97,25 @@ export const submitSection = async (
       return;
     }
 
-    // Check if section already completed
-    if (sectionType === "cognitive" && attempt.cognitiveCompleted) {
-      res.status(400).json({ message: "Cognitive section already completed" });
-      return;
-    }
-    if (sectionType === "aptitude" && attempt.aptitudeCompleted) {
-      res.status(400).json({ message: "Aptitude section already completed" });
+    const section = attempt.sections.find((s) => s.testType === testType);
+    if (!section) {
+      res.status(400).json({ message: "Section not found in attempt" });
       return;
     }
 
-    const testType = sectionType === "cognitive" ? "COGNITIVE" : "APTITUDE";
+    if (section.completed) {
+      res
+        .status(400)
+        .json({ message: `${testType} section already completed` });
+      return;
+    }
 
-    // Fetch questions with correct answers to calculate score
+    // Fetch questions to calculate score
     const questions = await Question.find({ testType }).sort({
       partNumber: 1,
       questionNumber: 1,
     });
 
-    // Calculate score
     let score = 0;
     const answersMap = new Map<string, string>();
 
@@ -113,20 +131,15 @@ export const submitSection = async (
       }
     }
 
-    // Update attempt
-    if (sectionType === "cognitive") {
-      attempt.cognitiveAnswers = answersMap;
-      attempt.cognitiveScore = score;
-      attempt.cognitiveTimeSpent = timeSpent || 0;
-      attempt.cognitiveCompleted = true;
-    } else {
-      attempt.aptitudeAnswers = answersMap;
-      attempt.aptitudeScore = score;
-      attempt.aptitudeTimeSpent = timeSpent || 0;
-      attempt.aptitudeCompleted = true;
-    }
+    section.answers = answersMap;
+    section.score = score;
+    section.timeSpent = timeSpent || 0;
+    section.completed = true;
 
-    attempt.totalScore = attempt.cognitiveScore + attempt.aptitudeScore;
+    attempt.totalScore = attempt.sections.reduce(
+      (sum, s) => sum + s.score,
+      0
+    );
     await attempt.save();
 
     res.json({ attempt, sectionScore: score });
@@ -156,15 +169,19 @@ export const completeTest = async (
       return;
     }
 
-    if (!attempt.cognitiveCompleted || !attempt.aptitudeCompleted) {
+    const allCompleted = attempt.sections.every((s) => s.completed);
+    if (!allCompleted) {
       res.status(400).json({
-        message: "Both sections must be completed before final submission",
+        message: "All sections must be completed before final submission",
       });
       return;
     }
 
     attempt.status = "COMPLETED";
-    attempt.totalScore = attempt.cognitiveScore + attempt.aptitudeScore;
+    attempt.totalScore = attempt.sections.reduce(
+      (sum, s) => sum + s.score,
+      0
+    );
     attempt.submittedAt = new Date();
     await attempt.save();
 

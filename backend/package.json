@@ -10,7 +10,9 @@
     "lint": "eslint src/**/*.ts",
     "seed:cognitive": "ts-node src/scripts/seedCognitiveQuestions.ts",
     "seed:aptitude": "ts-node src/scripts/seedAptitudeQuestions.ts",
-    "seed:all": "npm run seed:cognitive && npm run seed:aptitude"
+    "seed:personality": "ts-node src/scripts/seedPersonalityQuestions.ts",
+    "seed:career-interest": "ts-node src/scripts/seedCareerInterestQuestions.ts",
+    "seed:all": "npm run seed:cognitive && npm run seed:aptitude && npm run seed:personality && npm run seed:career-interest"
   },
   "keywords": [],
   "author": "",

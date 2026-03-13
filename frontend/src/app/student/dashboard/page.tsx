@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { testAPI } from "@/lib/api";
-import { TestResult, User } from "@/types";
+import { TestAttempt, TestResult, User } from "@/types";
 
 export default function StudentDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [results, setResults] = useState<TestResult[]>([]);
+  const [inProgress, setInProgress] = useState<TestAttempt | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,17 +20,38 @@ export default function StudentDashboard() {
       try { setUser(JSON.parse(userStr)); } catch { /* noop */ }
     }
 
-    testAPI
-      .getMyResults()
-      .then((res) => setResults(res.data.results || []))
-      .catch(() => toast.error("Failed to load your results"))
-      .finally(() => setLoading(false));
+    Promise.all([
+      testAPI.getMyResults().catch(() => ({ data: { results: [] } })),
+      testAPI.getInProgress().catch(() => ({ data: { attempt: null } })),
+    ]).then(([resultsRes, inProgressRes]) => {
+      setResults(resultsRes.data.results || []);
+      setInProgress(inProgressRes.data.attempt || null);
+    }).finally(() => setLoading(false));
   }, []);
 
   const latestResult: TestResult | null = results[0] ?? null;
+  const inProgressCompleted = inProgress?.sections?.filter((s) => s.completed).length || 0;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Resume test banner */}
+      {inProgress && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-amber-900">Resume Your Test</h2>
+            <p className="text-amber-700 text-sm mt-1">
+              You have an in-progress assessment. {inProgressCompleted}/8 sections completed.
+            </p>
+          </div>
+          <button
+            onClick={() => router.push("/student/test/start")}
+            className="px-5 py-2.5 bg-amber-600 text-white rounded-xl font-semibold text-sm hover:bg-amber-700 transition shadow-sm whitespace-nowrap"
+          >
+            Resume Test →
+          </button>
+        </div>
+      )}
+
       {/* Welcome banner */}
       <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-2xl p-6 text-white">
         <h1 className="text-2xl font-bold">
@@ -40,12 +62,14 @@ export default function StudentDashboard() {
             ? "You haven't taken the numeric assessment yet."
             : `You've completed ${results.length} test${results.length > 1 ? "s" : ""} so far.`}
         </p>
-        <button
-          onClick={() => router.push("/student/test")}
-          className="mt-4 px-5 py-2.5 bg-white text-blue-700 rounded-xl font-semibold text-sm hover:bg-blue-50 transition shadow-sm"
-        >
-          {results.length === 0 ? "Take Test Now →" : "Take Test Again →"}
-        </button>
+        {!inProgress && (
+          <button
+            onClick={() => router.push("/student/test")}
+            className="mt-4 px-5 py-2.5 bg-white text-blue-700 rounded-xl font-semibold text-sm hover:bg-blue-50 transition shadow-sm"
+          >
+            {results.length === 0 ? "Take Test Now →" : "Take Test Again →"}
+          </button>
+        )}
       </div>
 
       {/* Latest result snapshot */}
