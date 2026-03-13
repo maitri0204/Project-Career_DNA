@@ -128,6 +128,21 @@ interface BehavioralSocialResult {
   components: BehavioralSocialComponentResult[];
 }
 
+interface StressResilienceComponentResult {
+  partNumber: number;
+  title: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+}
+
+interface StressResilienceResult {
+  totalScore: number;
+  maxScore: number;
+  percentage: number;
+  components: StressResilienceComponentResult[];
+}
+
 const RIASEC_DOMAIN_MAP: Record<
   number,
   { code: RiasecDomainResult["code"]; title: string }
@@ -166,6 +181,13 @@ const BEHAVIORAL_SOCIAL_COMPONENT_MAP: Record<number, string> = {
   2: "Teamwork",
   3: "Leadership Skills",
   4: "Communication Skills",
+};
+
+const STRESS_RESILIENCE_COMPONENT_MAP: Record<number, string> = {
+  1: "Stress Triggers & Awareness",
+  2: "Emotional Coping Strategies",
+  3: "Problem-Solving & Self-Talk",
+  4: "Resilience & Bounce-Back Skills",
 };
 
 function calculatePersonalityType(
@@ -400,6 +422,65 @@ function calculateBehavioralSocialResult(
   };
 }
 
+function calculateStressResilienceResult(
+  answers: Record<string, string>,
+  questions: Question[]
+): StressResilienceResult {
+  const scoreMap: Record<string, number> = {
+    A: 4,
+    B: 3,
+    C: 2,
+    D: 1,
+  };
+  const reverseScoreMap: Record<string, number> = {
+    A: 1,
+    B: 2,
+    C: 3,
+    D: 4,
+  };
+
+  const parts = new Map<number, StressResilienceComponentResult>();
+
+  questions.forEach((q) => {
+    if (!parts.has(q.partNumber)) {
+      parts.set(q.partNumber, {
+        partNumber: q.partNumber,
+        title: STRESS_RESILIENCE_COMPONENT_MAP[q.partNumber] || q.partName,
+        score: 0,
+        maxScore: 0,
+        percentage: 0,
+      });
+    }
+
+    const part = parts.get(q.partNumber)!;
+    part.maxScore += 4;
+    const selected = answers[q._id];
+    const isReverseItem = q.questionText.trim().endsWith("*");
+    part.score += isReverseItem
+      ? reverseScoreMap[selected] || 0
+      : scoreMap[selected] || 0;
+  });
+
+  const components = Array.from(parts.values())
+    .sort((a, b) => a.partNumber - b.partNumber)
+    .map((component) => ({
+      ...component,
+      percentage: component.maxScore
+        ? Math.round((component.score / component.maxScore) * 100)
+        : 0,
+    }));
+
+  const totalScore = components.reduce((sum, c) => sum + c.score, 0);
+  const maxScore = components.reduce((sum, c) => sum + c.maxScore, 0);
+
+  return {
+    totalScore,
+    maxScore,
+    percentage: maxScore ? Math.round((totalScore / maxScore) * 100) : 0,
+    components,
+  };
+}
+
 export default function ResultDetailPage({
   params,
 }: {
@@ -417,6 +498,8 @@ export default function ResultDetailPage({
     useState<LearningStyleResult | null>(null);
   const [behavioralSocialResult, setBehavioralSocialResult] =
     useState<BehavioralSocialResult | null>(null);
+  const [stressResilienceResult, setStressResilienceResult] =
+    useState<StressResilienceResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -508,6 +591,21 @@ export default function ResultDetailPage({
             questions
           );
           setBehavioralSocialResult(bsResult);
+        }
+
+        const stressResilienceSection = data.sections?.find(
+          (s: { testType: string; completed: boolean }) =>
+            s.testType === "STRESS_RESILIENCE" && s.completed
+        );
+
+        if (stressResilienceSection) {
+          const questionsRes = await questionAPI.getByTestType("STRESS_RESILIENCE");
+          const questions: Question[] = questionsRes.data.questions;
+          const srResult = calculateStressResilienceResult(
+            stressResilienceSection.answers || {},
+            questions
+          );
+          setStressResilienceResult(srResult);
         }
       } catch {
         toast.error("Failed to load result");
@@ -612,6 +710,12 @@ export default function ResultDetailPage({
             <div className="bg-white/20 rounded-xl px-5 py-3">
               <p className="text-3xl font-bold">{behavioralSocialResult.percentage}%</p>
               <p className="text-blue-100 text-xs mt-0.5">Behavioral Skills</p>
+            </div>
+          )}
+          {stressResilienceResult && (
+            <div className="bg-white/20 rounded-xl px-5 py-3">
+              <p className="text-3xl font-bold">{stressResilienceResult.percentage}%</p>
+              <p className="text-blue-100 text-xs mt-0.5">Stress Resilience</p>
             </div>
           )}
         </div>
@@ -842,6 +946,44 @@ export default function ResultDetailPage({
         </div>
       )}
 
+      {/* ── Stress & Resilience Card (if available) ── */}
+      {stressResilienceResult && (
+        <div className="bg-white rounded-2xl border border-teal-200 shadow-sm overflow-hidden">
+          <div className="bg-teal-50 px-6 py-4 border-b border-teal-200">
+            <h2 className="text-lg font-bold text-gray-900">
+              Stress & Resilience Assessment
+            </h2>
+            <p className="text-gray-600 text-sm mt-1">
+              Weighted scoring: A=4, B=3, C=2, D=1 (reverse scoring for * items)
+            </p>
+            <p className="text-sm font-semibold text-teal-700 mt-1">
+              Total: {stressResilienceResult.totalScore}/{stressResilienceResult.maxScore} ({stressResilienceResult.percentage}%)
+            </p>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {stressResilienceResult.components.map((component) => (
+              <div key={component.partNumber}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm font-semibold text-gray-800">
+                    {component.title}
+                  </span>
+                  <span className="text-sm font-bold text-teal-700">
+                    {component.score}/{component.maxScore} ({component.percentage}%)
+                  </span>
+                </div>
+                <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-teal-500 transition-all duration-700"
+                    style={{ width: `${component.percentage}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Section Score Cards ── */}
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-4">Section-wise Results</h2>
@@ -892,6 +1034,8 @@ export default function ResultDetailPage({
                               ? `${section?.score || 0}/240`
                               : config.type === "BEHAVIORAL_SOCIAL"
                               ? `${section?.score || 0}/320`
+                                : config.type === "STRESS_RESILIENCE"
+                                ? `${section?.score || 0}/320`
                               : section?.score || 0}
                           </p>
                           <p className="text-[10px] text-gray-400 mt-0.5">Score</p>

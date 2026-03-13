@@ -121,6 +121,7 @@ export const submitSection = async (
     const isEmotionalIntelligence = testType === "EMOTIONAL_INTELLIGENCE";
     const isLearningStyle = testType === "LEARNING_STYLE";
     const isBehavioralSocial = testType === "BEHAVIORAL_SOCIAL";
+    const isStressResilience = testType === "STRESS_RESILIENCE";
     const eqScoreMap: Record<string, number> = {
       A: 4,
       B: 3,
@@ -137,6 +138,18 @@ export const submitSection = async (
       B: 3,
       C: 2,
       D: 1,
+    };
+    const stressResilienceScoreMap: Record<string, number> = {
+      A: 4,
+      B: 3,
+      C: 2,
+      D: 1,
+    };
+    const stressResilienceReverseScoreMap: Record<string, number> = {
+      A: 1,
+      B: 2,
+      C: 3,
+      D: 4,
     };
 
     if (answers && typeof answers === "object") {
@@ -155,6 +168,11 @@ export const submitSection = async (
           score += learningStyleScoreMap[normalizedAnswer] || 0;
         } else if (isBehavioralSocial) {
           score += behavioralSocialScoreMap[normalizedAnswer] || 0;
+        } else if (isStressResilience) {
+          const isReverseItem = question.questionText.trim().endsWith("*");
+          score += isReverseItem
+            ? stressResilienceReverseScoreMap[normalizedAnswer] || 0
+            : stressResilienceScoreMap[normalizedAnswer] || 0;
         } else {
           if (question.correctAnswer === normalizedAnswer) {
             score++;

@@ -65,15 +65,30 @@ export default function TestSectionPage({
   }, [params]);
 
   // ── Fullscreen management ──
-  const enterFullscreen = useCallback(async () => {
+  const enterFullscreen = useCallback(async (silent = false) => {
     try {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();
       }
     } catch {
-      toast.error("Fullscreen is required during the test.");
+      if (!silent) {
+        toast.error("Fullscreen is required during the test.");
+      }
     }
   }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    void enterFullscreen(true);
+  }, [enterFullscreen]);
+
+  const getDisplayQuestionText = useCallback(
+    (text: string) => {
+      if (testType !== "STRESS_RESILIENCE") return text;
+      return text.replace(/\*\s*$/, "").trimEnd();
+    },
+    [testType]
+  );
 
   useEffect(() => {
     const handleFSChange = () => {
@@ -446,7 +461,7 @@ export default function TestSectionPage({
                     {currentQuestionIndex + 1}
                   </span>
                   <h3 className="text-gray-900 text-lg font-medium leading-relaxed">
-                    {currentQuestion.questionText}
+                    {getDisplayQuestionText(currentQuestion.questionText)}
                   </h3>
                 </div>
               </div>

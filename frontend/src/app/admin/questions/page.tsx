@@ -269,6 +269,11 @@ export default function AdminQuestionsPage() {
                     Scoring: A=4, B=3, C=2, D=1 (no right/wrong answer)
                   </p>
                 )}
+                {testType === "STRESS_RESILIENCE" && (
+                  <p className="text-xs text-teal-600 mt-1 font-medium">
+                    Scoring: A=4, B=3, C=2, D=1 (reverse score for * items)
+                  </p>
+                )}
               </div>
               <button
                 onClick={openAddModal}
@@ -331,6 +336,7 @@ export default function AdminQuestionsPage() {
                               testType !== "EMOTIONAL_INTELLIGENCE" &&
                               testType !== "LEARNING_STYLE" &&
                               testType !== "BEHAVIORAL_SOCIAL" &&
+                              testType !== "STRESS_RESILIENCE" &&
                               q.correctAnswer === opt.label
                                 ? "bg-green-50 text-green-700 border-green-200 font-semibold"
                                 : "bg-white text-gray-600 border-gray-200"

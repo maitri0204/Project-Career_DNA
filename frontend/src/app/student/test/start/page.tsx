@@ -133,11 +133,16 @@ export default function TestStartPage() {
     init();
   }, [router]);
 
-  const goToSection = (type: string) => {
+  const goToSection = async (type: string) => {
     if (!attempt) return;
-    document.documentElement.requestFullscreen().catch((e) => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (e) {
       console.error("Error attempting to enable full-screen mode:", e);
-    });
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     router.push(`/student/test/sections/${type}?attemptId=${attempt._id}`);
   };
 
