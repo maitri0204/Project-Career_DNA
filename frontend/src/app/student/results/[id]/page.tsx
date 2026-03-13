@@ -97,6 +97,22 @@ interface EmotionalIntelligenceResult {
   components: EqComponentResult[];
 }
 
+interface LearningStyleComponentResult {
+  code: "V" | "A" | "R" | "K" | "L" | "S" | "I" | "M";
+  title: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+}
+
+interface LearningStyleResult {
+  totalScore: number;
+  maxScore: number;
+  percentage: number;
+  dominantCode: string;
+  components: LearningStyleComponentResult[];
+}
+
 const RIASEC_DOMAIN_MAP: Record<
   number,
   { code: RiasecDomainResult["code"]; title: string }
@@ -114,6 +130,20 @@ const EQ_COMPONENT_MAP: Record<number, string> = {
   2: "Emotional Regulation",
   3: "Empathy",
   4: "Social Skills",
+};
+
+const LEARNING_STYLE_MAP: Record<
+  number,
+  { code: LearningStyleComponentResult["code"]; title: string }
+> = {
+  1: { code: "V", title: "Visual" },
+  2: { code: "A", title: "Auditory" },
+  3: { code: "R", title: "Reading/Writing" },
+  4: { code: "K", title: "Kinesthetic" },
+  5: { code: "L", title: "Logical" },
+  6: { code: "S", title: "Social" },
+  7: { code: "I", title: "Solitary" },
+  8: { code: "M", title: "Musical" },
 };
 
 function calculatePersonalityType(
@@ -246,6 +276,58 @@ function calculateEmotionalIntelligenceResult(
   };
 }
 
+function calculateLearningStyleResult(
+  answers: Record<string, string>,
+  questions: Question[]
+): LearningStyleResult {
+  const scoreMap: Record<string, number> = {
+    A: 3,
+    B: 2,
+    C: 1,
+  };
+
+  const base: Record<string, LearningStyleComponentResult> = {
+    V: { code: "V", title: "Visual", score: 0, maxScore: 0, percentage: 0 },
+    A: { code: "A", title: "Auditory", score: 0, maxScore: 0, percentage: 0 },
+    R: { code: "R", title: "Reading/Writing", score: 0, maxScore: 0, percentage: 0 },
+    K: { code: "K", title: "Kinesthetic", score: 0, maxScore: 0, percentage: 0 },
+    L: { code: "L", title: "Logical", score: 0, maxScore: 0, percentage: 0 },
+    S: { code: "S", title: "Social", score: 0, maxScore: 0, percentage: 0 },
+    I: { code: "I", title: "Solitary", score: 0, maxScore: 0, percentage: 0 },
+    M: { code: "M", title: "Musical", score: 0, maxScore: 0, percentage: 0 },
+  };
+
+  questions.forEach((q) => {
+    const style = LEARNING_STYLE_MAP[q.partNumber];
+    if (!style) return;
+
+    base[style.code].maxScore += 3;
+    const selected = answers[q._id];
+    base[style.code].score += scoreMap[selected] || 0;
+  });
+
+  const components = Object.values(base)
+    .map((component) => ({
+      ...component,
+      percentage: component.maxScore
+        ? Math.round((component.score / component.maxScore) * 100)
+        : 0,
+    }))
+    .sort((a, b) => b.percentage - a.percentage || b.score - a.score || a.code.localeCompare(b.code));
+
+  const totalScore = components.reduce((sum, c) => sum + c.score, 0);
+  const maxScore = components.reduce((sum, c) => sum + c.maxScore, 0);
+  const dominantCode = components.slice(0, 3).map((c) => c.code).join("");
+
+  return {
+    totalScore,
+    maxScore,
+    percentage: maxScore ? Math.round((totalScore / maxScore) * 100) : 0,
+    dominantCode,
+    components,
+  };
+}
+
 export default function ResultDetailPage({
   params,
 }: {
@@ -259,6 +341,8 @@ export default function ResultDetailPage({
     useState<CareerInterestResult | null>(null);
   const [emotionalIntelligenceResult, setEmotionalIntelligenceResult] =
     useState<EmotionalIntelligenceResult | null>(null);
+  const [learningStyleResult, setLearningStyleResult] =
+    useState<LearningStyleResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -320,6 +404,21 @@ export default function ResultDetailPage({
             questions
           );
           setEmotionalIntelligenceResult(eqResult);
+        }
+
+        const learningStyleSection = data.sections?.find(
+          (s: { testType: string; completed: boolean }) =>
+            s.testType === "LEARNING_STYLE" && s.completed
+        );
+
+        if (learningStyleSection) {
+          const questionsRes = await questionAPI.getByTestType("LEARNING_STYLE");
+          const questions: Question[] = questionsRes.data.questions;
+          const lsResult = calculateLearningStyleResult(
+            learningStyleSection.answers || {},
+            questions
+          );
+          setLearningStyleResult(lsResult);
         }
       } catch {
         toast.error("Failed to load result");
@@ -412,6 +511,12 @@ export default function ResultDetailPage({
             <div className="bg-white/20 rounded-xl px-5 py-3">
               <p className="text-3xl font-bold">{emotionalIntelligenceResult.percentage}%</p>
               <p className="text-blue-100 text-xs mt-0.5">EQ Score</p>
+            </div>
+          )}
+          {learningStyleResult && (
+            <div className="bg-white/20 rounded-xl px-5 py-3">
+              <p className="text-3xl font-bold">{learningStyleResult.dominantCode}</p>
+              <p className="text-blue-100 text-xs mt-0.5">Learning Style</p>
             </div>
           )}
         </div>
@@ -566,6 +671,44 @@ export default function ResultDetailPage({
         </div>
       )}
 
+      {/* ── Learning Style Card (if available) ── */}
+      {learningStyleResult && (
+        <div className="bg-white rounded-2xl border border-emerald-200 shadow-sm overflow-hidden">
+          <div className="bg-emerald-50 px-6 py-4 border-b border-emerald-200">
+            <h2 className="text-lg font-bold text-gray-900">
+              Learning Style: <span className="text-emerald-700">{learningStyleResult.dominantCode}</span>
+            </h2>
+            <p className="text-gray-600 text-sm mt-1">
+              Weighted scoring: A=3, B=2, C=1
+            </p>
+            <p className="text-sm font-semibold text-emerald-700 mt-1">
+              Total: {learningStyleResult.totalScore}/{learningStyleResult.maxScore} ({learningStyleResult.percentage}%)
+            </p>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {learningStyleResult.components.map((component) => (
+              <div key={component.code}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm font-semibold text-gray-800">
+                    {component.code} — {component.title}
+                  </span>
+                  <span className="text-sm font-bold text-emerald-700">
+                    {component.score}/{component.maxScore} ({component.percentage}%)
+                  </span>
+                </div>
+                <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                    style={{ width: `${component.percentage}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Section Score Cards ── */}
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-4">Section-wise Results</h2>
@@ -612,6 +755,8 @@ export default function ResultDetailPage({
                           <p className="text-xl font-bold text-gray-900">
                             {config.type === "EMOTIONAL_INTELLIGENCE"
                               ? `${section?.score || 0}/320`
+                              : config.type === "LEARNING_STYLE"
+                              ? `${section?.score || 0}/240`
                               : section?.score || 0}
                           </p>
                           <p className="text-[10px] text-gray-400 mt-0.5">Score</p>
@@ -647,6 +792,17 @@ export default function ResultDetailPage({
                     </p>
                     <p className="text-[10px] text-amber-500 mt-0.5">
                       Dominant RIASEC Code
+                    </p>
+                  </div>
+                )}
+
+                {isCompleted && config.type === "LEARNING_STYLE" && (
+                  <div className="bg-emerald-50 rounded-xl px-4 py-2 text-center flex-1 mt-3">
+                    <p className="text-xl font-bold text-emerald-700">
+                      {learningStyleResult?.dominantCode || "—"}
+                    </p>
+                    <p className="text-[10px] text-emerald-600 mt-0.5">
+                      Dominant Style Code
                     </p>
                   </div>
                 )}

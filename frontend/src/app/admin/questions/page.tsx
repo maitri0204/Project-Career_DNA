@@ -259,6 +259,11 @@ export default function AdminQuestionsPage() {
                     Scoring: A=4, B=3, C=2, D=1 (no right/wrong answer)
                   </p>
                 )}
+                {testType === "LEARNING_STYLE" && (
+                  <p className="text-xs text-emerald-600 mt-1 font-medium">
+                    Scoring: A=3, B=2, C=1 (no right/wrong answer)
+                  </p>
+                )}
               </div>
               <button
                 onClick={openAddModal}
@@ -319,6 +324,7 @@ export default function AdminQuestionsPage() {
                             key={opt.label}
                             className={`text-xs px-2.5 py-1 rounded-lg border ${
                               testType !== "EMOTIONAL_INTELLIGENCE" &&
+                              testType !== "LEARNING_STYLE" &&
                               q.correctAnswer === opt.label
                                 ? "bg-green-50 text-green-700 border-green-200 font-semibold"
                                 : "bg-white text-gray-600 border-gray-200"
