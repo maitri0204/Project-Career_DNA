@@ -120,6 +120,7 @@ export const submitSection = async (
     const answersMap = new Map<string, string>();
     const isEmotionalIntelligence = testType === "EMOTIONAL_INTELLIGENCE";
     const isLearningStyle = testType === "LEARNING_STYLE";
+    const isBehavioralSocial = testType === "BEHAVIORAL_SOCIAL";
     const eqScoreMap: Record<string, number> = {
       A: 4,
       B: 3,
@@ -130,6 +131,12 @@ export const submitSection = async (
       A: 3,
       B: 2,
       C: 1,
+    };
+    const behavioralSocialScoreMap: Record<string, number> = {
+      A: 4,
+      B: 3,
+      C: 2,
+      D: 1,
     };
 
     if (answers && typeof answers === "object") {
@@ -146,6 +153,8 @@ export const submitSection = async (
           score += eqScoreMap[normalizedAnswer] || 0;
         } else if (isLearningStyle) {
           score += learningStyleScoreMap[normalizedAnswer] || 0;
+        } else if (isBehavioralSocial) {
+          score += behavioralSocialScoreMap[normalizedAnswer] || 0;
         } else {
           if (question.correctAnswer === normalizedAnswer) {
             score++;

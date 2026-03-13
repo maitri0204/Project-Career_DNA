@@ -14,7 +14,8 @@
     "seed:career-interest": "ts-node src/scripts/seedCareerInterestQuestions.ts",
     "seed:emotional-intelligence": "ts-node src/scripts/seedEmotionalIntelligenceQuestions.ts",
     "seed:learning-style": "ts-node src/scripts/seedLearningStyleQuestions.ts",
-    "seed:all": "npm run seed:cognitive && npm run seed:aptitude && npm run seed:personality && npm run seed:career-interest && npm run seed:emotional-intelligence && npm run seed:learning-style"
+    "seed:behavioral-social": "ts-node src/scripts/seedBehavioralSocialQuestions.ts",
+    "seed:all": "npm run seed:cognitive && npm run seed:aptitude && npm run seed:personality && npm run seed:career-interest && npm run seed:emotional-intelligence && npm run seed:learning-style && npm run seed:behavioral-social"
   },
   "keywords": [],
   "author": "",

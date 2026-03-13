@@ -113,6 +113,21 @@ interface LearningStyleResult {
   components: LearningStyleComponentResult[];
 }
 
+interface BehavioralSocialComponentResult {
+  partNumber: number;
+  title: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+}
+
+interface BehavioralSocialResult {
+  totalScore: number;
+  maxScore: number;
+  percentage: number;
+  components: BehavioralSocialComponentResult[];
+}
+
 const RIASEC_DOMAIN_MAP: Record<
   number,
   { code: RiasecDomainResult["code"]; title: string }
@@ -144,6 +159,13 @@ const LEARNING_STYLE_MAP: Record<
   6: { code: "S", title: "Social" },
   7: { code: "I", title: "Solitary" },
   8: { code: "M", title: "Musical" },
+};
+
+const BEHAVIORAL_SOCIAL_COMPONENT_MAP: Record<number, string> = {
+  1: "Adaptability",
+  2: "Teamwork",
+  3: "Leadership Skills",
+  4: "Communication Skills",
 };
 
 function calculatePersonalityType(
@@ -328,6 +350,56 @@ function calculateLearningStyleResult(
   };
 }
 
+function calculateBehavioralSocialResult(
+  answers: Record<string, string>,
+  questions: Question[]
+): BehavioralSocialResult {
+  const scoreMap: Record<string, number> = {
+    A: 4,
+    B: 3,
+    C: 2,
+    D: 1,
+  };
+
+  const parts = new Map<number, BehavioralSocialComponentResult>();
+
+  questions.forEach((q) => {
+    if (!parts.has(q.partNumber)) {
+      parts.set(q.partNumber, {
+        partNumber: q.partNumber,
+        title: BEHAVIORAL_SOCIAL_COMPONENT_MAP[q.partNumber] || q.partName,
+        score: 0,
+        maxScore: 0,
+        percentage: 0,
+      });
+    }
+
+    const part = parts.get(q.partNumber)!;
+    part.maxScore += 4;
+    const selected = answers[q._id];
+    part.score += scoreMap[selected] || 0;
+  });
+
+  const components = Array.from(parts.values())
+    .sort((a, b) => a.partNumber - b.partNumber)
+    .map((component) => ({
+      ...component,
+      percentage: component.maxScore
+        ? Math.round((component.score / component.maxScore) * 100)
+        : 0,
+    }));
+
+  const totalScore = components.reduce((sum, c) => sum + c.score, 0);
+  const maxScore = components.reduce((sum, c) => sum + c.maxScore, 0);
+
+  return {
+    totalScore,
+    maxScore,
+    percentage: maxScore ? Math.round((totalScore / maxScore) * 100) : 0,
+    components,
+  };
+}
+
 export default function ResultDetailPage({
   params,
 }: {
@@ -343,6 +415,8 @@ export default function ResultDetailPage({
     useState<EmotionalIntelligenceResult | null>(null);
   const [learningStyleResult, setLearningStyleResult] =
     useState<LearningStyleResult | null>(null);
+  const [behavioralSocialResult, setBehavioralSocialResult] =
+    useState<BehavioralSocialResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -419,6 +493,21 @@ export default function ResultDetailPage({
             questions
           );
           setLearningStyleResult(lsResult);
+        }
+
+        const behavioralSocialSection = data.sections?.find(
+          (s: { testType: string; completed: boolean }) =>
+            s.testType === "BEHAVIORAL_SOCIAL" && s.completed
+        );
+
+        if (behavioralSocialSection) {
+          const questionsRes = await questionAPI.getByTestType("BEHAVIORAL_SOCIAL");
+          const questions: Question[] = questionsRes.data.questions;
+          const bsResult = calculateBehavioralSocialResult(
+            behavioralSocialSection.answers || {},
+            questions
+          );
+          setBehavioralSocialResult(bsResult);
         }
       } catch {
         toast.error("Failed to load result");
@@ -517,6 +606,12 @@ export default function ResultDetailPage({
             <div className="bg-white/20 rounded-xl px-5 py-3">
               <p className="text-3xl font-bold">{learningStyleResult.dominantCode}</p>
               <p className="text-blue-100 text-xs mt-0.5">Learning Style</p>
+            </div>
+          )}
+          {behavioralSocialResult && (
+            <div className="bg-white/20 rounded-xl px-5 py-3">
+              <p className="text-3xl font-bold">{behavioralSocialResult.percentage}%</p>
+              <p className="text-blue-100 text-xs mt-0.5">Behavioral Skills</p>
             </div>
           )}
         </div>
@@ -709,6 +804,44 @@ export default function ResultDetailPage({
         </div>
       )}
 
+      {/* ── Behavioral & Social Skills Card (if available) ── */}
+      {behavioralSocialResult && (
+        <div className="bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden">
+          <div className="bg-blue-50 px-6 py-4 border-b border-blue-200">
+            <h2 className="text-lg font-bold text-gray-900">
+              Behavioral and Social Skills Assessment
+            </h2>
+            <p className="text-gray-600 text-sm mt-1">
+              Weighted scoring: A=4, B=3, C=2, D=1
+            </p>
+            <p className="text-sm font-semibold text-blue-700 mt-1">
+              Total: {behavioralSocialResult.totalScore}/{behavioralSocialResult.maxScore} ({behavioralSocialResult.percentage}%)
+            </p>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {behavioralSocialResult.components.map((component) => (
+              <div key={component.partNumber}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm font-semibold text-gray-800">
+                    {component.title}
+                  </span>
+                  <span className="text-sm font-bold text-blue-700">
+                    {component.score}/{component.maxScore} ({component.percentage}%)
+                  </span>
+                </div>
+                <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-all duration-700"
+                    style={{ width: `${component.percentage}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Section Score Cards ── */}
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-4">Section-wise Results</h2>
@@ -757,6 +890,8 @@ export default function ResultDetailPage({
                               ? `${section?.score || 0}/320`
                               : config.type === "LEARNING_STYLE"
                               ? `${section?.score || 0}/240`
+                              : config.type === "BEHAVIORAL_SOCIAL"
+                              ? `${section?.score || 0}/320`
                               : section?.score || 0}
                           </p>
                           <p className="text-[10px] text-gray-400 mt-0.5">Score</p>
