@@ -82,6 +82,21 @@ interface CareerInterestResult {
   dominantCode: string;
 }
 
+interface EqComponentResult {
+  partNumber: number;
+  title: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+}
+
+interface EmotionalIntelligenceResult {
+  totalScore: number;
+  maxScore: number;
+  percentage: number;
+  components: EqComponentResult[];
+}
+
 const RIASEC_DOMAIN_MAP: Record<
   number,
   { code: RiasecDomainResult["code"]; title: string }
@@ -92,6 +107,13 @@ const RIASEC_DOMAIN_MAP: Record<
   4: { code: "S", title: "Social" },
   5: { code: "E", title: "Enterprising" },
   6: { code: "C", title: "Conventional" },
+};
+
+const EQ_COMPONENT_MAP: Record<number, string> = {
+  1: "Self-Awareness",
+  2: "Emotional Regulation",
+  3: "Empathy",
+  4: "Social Skills",
 };
 
 function calculatePersonalityType(
@@ -174,6 +196,56 @@ function calculateCareerInterestType(
   return { domains, dominantCode };
 }
 
+function calculateEmotionalIntelligenceResult(
+  answers: Record<string, string>,
+  questions: Question[]
+): EmotionalIntelligenceResult {
+  const scoreMap: Record<string, number> = {
+    A: 4,
+    B: 3,
+    C: 2,
+    D: 1,
+  };
+
+  const parts = new Map<number, EqComponentResult>();
+
+  questions.forEach((q) => {
+    if (!parts.has(q.partNumber)) {
+      parts.set(q.partNumber, {
+        partNumber: q.partNumber,
+        title: EQ_COMPONENT_MAP[q.partNumber] || q.partName,
+        score: 0,
+        maxScore: 0,
+        percentage: 0,
+      });
+    }
+
+    const part = parts.get(q.partNumber)!;
+    part.maxScore += 4;
+    const selected = answers[q._id];
+    part.score += scoreMap[selected] || 0;
+  });
+
+  const components = Array.from(parts.values())
+    .sort((a, b) => a.partNumber - b.partNumber)
+    .map((component) => ({
+      ...component,
+      percentage: component.maxScore
+        ? Math.round((component.score / component.maxScore) * 100)
+        : 0,
+    }));
+
+  const totalScore = components.reduce((sum, c) => sum + c.score, 0);
+  const maxScore = components.reduce((sum, c) => sum + c.maxScore, 0);
+
+  return {
+    totalScore,
+    maxScore,
+    percentage: maxScore ? Math.round((totalScore / maxScore) * 100) : 0,
+    components,
+  };
+}
+
 export default function ResultDetailPage({
   params,
 }: {
@@ -185,6 +257,8 @@ export default function ResultDetailPage({
   const [personalityResult, setPersonalityResult] = useState<PersonalityResult | null>(null);
   const [careerInterestResult, setCareerInterestResult] =
     useState<CareerInterestResult | null>(null);
+  const [emotionalIntelligenceResult, setEmotionalIntelligenceResult] =
+    useState<EmotionalIntelligenceResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -229,6 +303,23 @@ export default function ResultDetailPage({
             questions
           );
           setCareerInterestResult(cResult);
+        }
+
+        const emotionalIntelligenceSection = data.sections?.find(
+          (s: { testType: string; completed: boolean }) =>
+            s.testType === "EMOTIONAL_INTELLIGENCE" && s.completed
+        );
+
+        if (emotionalIntelligenceSection) {
+          const questionsRes = await questionAPI.getByTestType(
+            "EMOTIONAL_INTELLIGENCE"
+          );
+          const questions: Question[] = questionsRes.data.questions;
+          const eqResult = calculateEmotionalIntelligenceResult(
+            emotionalIntelligenceSection.answers || {},
+            questions
+          );
+          setEmotionalIntelligenceResult(eqResult);
         }
       } catch {
         toast.error("Failed to load result");
@@ -315,6 +406,12 @@ export default function ResultDetailPage({
             <div className="bg-white/20 rounded-xl px-5 py-3">
               <p className="text-3xl font-bold">{careerInterestResult.dominantCode}</p>
               <p className="text-blue-100 text-xs mt-0.5">RIASEC Code</p>
+            </div>
+          )}
+          {emotionalIntelligenceResult && (
+            <div className="bg-white/20 rounded-xl px-5 py-3">
+              <p className="text-3xl font-bold">{emotionalIntelligenceResult.percentage}%</p>
+              <p className="text-blue-100 text-xs mt-0.5">EQ Score</p>
             </div>
           )}
         </div>
@@ -433,6 +530,42 @@ export default function ResultDetailPage({
         </div>
       )}
 
+      {/* ── Emotional Intelligence Card (if available) ── */}
+      {emotionalIntelligenceResult && (
+        <div className="bg-white rounded-2xl border border-pink-200 shadow-sm overflow-hidden">
+          <div className="bg-pink-50 px-6 py-4 border-b border-pink-200">
+            <h2 className="text-lg font-bold text-gray-900">Emotional Intelligence (EQ)</h2>
+            <p className="text-gray-600 text-sm mt-1">
+              Weighted scoring: A=4, B=3, C=2, D=1
+            </p>
+            <p className="text-sm font-semibold text-pink-700 mt-1">
+              Total: {emotionalIntelligenceResult.totalScore}/{emotionalIntelligenceResult.maxScore} ({emotionalIntelligenceResult.percentage}%)
+            </p>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {emotionalIntelligenceResult.components.map((component) => (
+              <div key={component.partNumber}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm font-semibold text-gray-800">
+                    {component.title}
+                  </span>
+                  <span className="text-sm font-bold text-pink-600">
+                    {component.score}/{component.maxScore} ({component.percentage}%)
+                  </span>
+                </div>
+                <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-pink-500 transition-all duration-700"
+                    style={{ width: `${component.percentage}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Section Score Cards ── */}
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-4">Section-wise Results</h2>
@@ -477,7 +610,9 @@ export default function ResultDetailPage({
                       <>
                         <div className="bg-gray-50 rounded-xl px-4 py-2 text-center flex-1">
                           <p className="text-xl font-bold text-gray-900">
-                            {section?.score || 0}
+                            {config.type === "EMOTIONAL_INTELLIGENCE"
+                              ? `${section?.score || 0}/320`
+                              : section?.score || 0}
                           </p>
                           <p className="text-[10px] text-gray-400 mt-0.5">Score</p>
                         </div>

@@ -118,15 +118,30 @@ export const submitSection = async (
 
     let score = 0;
     const answersMap = new Map<string, string>();
+    const isEmotionalIntelligence = testType === "EMOTIONAL_INTELLIGENCE";
+    const eqScoreMap: Record<string, number> = {
+      A: 4,
+      B: 3,
+      C: 2,
+      D: 1,
+    };
 
     if (answers && typeof answers === "object") {
       for (const [questionId, selectedAnswer] of Object.entries(answers)) {
-        answersMap.set(questionId, selectedAnswer as string);
-        const question = questions.find(
-          (q) => q._id.toString() === questionId
-        );
-        if (question && question.correctAnswer === selectedAnswer) {
-          score++;
+        const normalizedAnswer = String(selectedAnswer || "").toUpperCase();
+        const question = questions.find((q) => q._id.toString() === questionId);
+        if (!question) {
+          continue;
+        }
+
+        answersMap.set(questionId, normalizedAnswer);
+
+        if (isEmotionalIntelligence) {
+          score += eqScoreMap[normalizedAnswer] || 0;
+        } else {
+          if (question.correctAnswer === normalizedAnswer) {
+            score++;
+          }
         }
       }
     }

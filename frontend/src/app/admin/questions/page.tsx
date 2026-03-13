@@ -254,6 +254,11 @@ export default function AdminQuestionsPage() {
                 <p className="text-sm text-gray-400 mt-0.5">
                   {partQuestions.length} question{partQuestions.length !== 1 ? "s" : ""}
                 </p>
+                {testType === "EMOTIONAL_INTELLIGENCE" && (
+                  <p className="text-xs text-pink-600 mt-1 font-medium">
+                    Scoring: A=4, B=3, C=2, D=1 (no right/wrong answer)
+                  </p>
+                )}
               </div>
               <button
                 onClick={openAddModal}
@@ -313,6 +318,7 @@ export default function AdminQuestionsPage() {
                           <span
                             key={opt.label}
                             className={`text-xs px-2.5 py-1 rounded-lg border ${
+                              testType !== "EMOTIONAL_INTELLIGENCE" &&
                               q.correctAnswer === opt.label
                                 ? "bg-green-50 text-green-700 border-green-200 font-semibold"
                                 : "bg-white text-gray-600 border-gray-200"
