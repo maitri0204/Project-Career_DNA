@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { User } from "@/types";
 
 const instructions = [
-  "This is a timed numeric assessment designed to evaluate your mathematical reasoning and problem-solving skills.",
+  "This is a timed Career Compass assessment designed to evaluate your mathematical reasoning and problem-solving skills.",
   "Read each question carefully before selecting your answer.",
   "Each question has only one correct answer. Select the option you believe is correct.",
   "You can navigate between questions using the Next and Previous buttons.",
@@ -40,7 +40,7 @@ export default function TestInstructionsPage() {
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
-          Numeric Assessment
+          Career Compass
         </h1>
         <p className="mt-1 text-blue-100">
           Hello {user?.firstName ?? "Student"}, please read the instructions below before starting the test.

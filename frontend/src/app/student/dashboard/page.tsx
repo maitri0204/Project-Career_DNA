@@ -59,7 +59,7 @@ export default function StudentDashboard() {
         </h1>
         <p className="mt-1 text-blue-100">
           {results.length === 0
-            ? "You haven't taken the numeric assessment yet."
+            ? "You haven't taken the Career Compass assessment yet."
             : `You've completed ${results.length} test${results.length > 1 ? "s" : ""} so far.`}
         </p>
         {!inProgress && (
@@ -116,7 +116,7 @@ export default function StudentDashboard() {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-1">Start Your Assessment</h3>
           <p className="text-gray-500 text-sm mb-4">
-            Take the numeric assessment to evaluate your mathematical skills and get personalized insights.
+            Take the Career Compass assessment to evaluate your mathematical skills and get personalized insights.
           </p>
           <button
             onClick={() => router.push("/student/test")}

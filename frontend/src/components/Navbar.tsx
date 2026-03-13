@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -53,15 +54,20 @@ export default function Navbar() {
   return (
     <nav className="bg-white sticky top-0 z-50 shadow-lg border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
+        <div className="flex justify-between h-20 items-center">
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center group gap-2">
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">N</span>
-              </div>
-              <span className="text-lg font-bold text-gray-900 hidden sm:block">
-                Numeric Assessment
+              <Image
+                src="/career-compass-logo.png"
+                alt="Career Compass"
+                width={230}
+                height={46}
+                className="h-18 w-auto hidden sm:block"
+                priority
+              />
+              <span className="text-lg font-bold text-gray-900 sm:hidden">
+                Career Compass
               </span>
             </Link>
           </div>

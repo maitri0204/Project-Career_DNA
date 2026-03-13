@@ -128,7 +128,7 @@ export default function AdminDashboard() {
       {/* Page title */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-500 mt-1">Manage and review all student numeric assessments</p>
+        <p className="text-gray-500 mt-1">Manage and review all student Career Compass assessments</p>
       </div>
 
       {/* Stats */}

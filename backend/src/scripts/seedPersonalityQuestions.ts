@@ -279,7 +279,7 @@ const personalityQuestions: SeedQuestion[] = [
     "I value harmony in relationships",
     "Yes", "No", "F"),
   pq(5, "Additional Reflection Questions", 68,
-    "I prefer keeping options open",
+    "I prefer keeping options open rather than following a fixed plan",
     "Yes", "No", "P"),
   pq(5, "Additional Reflection Questions", 69,
     "I enjoy planning activities in advance",

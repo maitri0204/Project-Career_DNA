@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Numeric Assessment",
-  description: "Numeric Assessment Platform",
+  title: "Career Compass",
+  description: "Career Compass Platform",
 };
 
 export default function RootLayout({

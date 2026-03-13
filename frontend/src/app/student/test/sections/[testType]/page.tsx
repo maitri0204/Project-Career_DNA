@@ -52,9 +52,11 @@ export default function TestSectionPage({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showResumeModal, setShowResumeModal] = useState(false);
 
   const startTimeRef = useRef<number>(Date.now());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const submittingRef = useRef(false);
 
   // ── Resolve params ──
   useEffect(() => {
@@ -77,6 +79,11 @@ export default function TestSectionPage({
     }
   }, []);
 
+  const handleResumeTest = useCallback(async () => {
+    await enterFullscreen();
+    setShowResumeModal(false);
+  }, [enterFullscreen]);
+
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     void enterFullscreen(true);
@@ -92,12 +99,10 @@ export default function TestSectionPage({
 
   useEffect(() => {
     const handleFSChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-      if (!document.fullscreenElement) {
-        toast.error("Please stay in fullscreen mode during the test!", {
-          duration: 4000,
-          icon: "⚠️",
-        });
+      const inFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(inFullscreen);
+      if (!inFullscreen && !submittingRef.current) {
+        setShowResumeModal(true);
       }
     };
     document.addEventListener("fullscreenchange", handleFSChange);
@@ -219,7 +224,7 @@ export default function TestSectionPage({
 
   // ── Timer ──
   useEffect(() => {
-    if (loading) return;
+    if (loading || showResumeModal) return;
 
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
@@ -236,7 +241,7 @@ export default function TestSectionPage({
       if (timerRef.current) clearInterval(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, showResumeModal]);
 
   // ── Auto submit ──
   const handleAutoSubmit = useCallback(async () => {
@@ -250,6 +255,7 @@ export default function TestSectionPage({
   const submitSection = async () => {
     if (submitting) return;
     setSubmitting(true);
+    submittingRef.current = true;
 
     try {
       const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -324,7 +330,7 @@ export default function TestSectionPage({
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    return `${m}m:${s.toString().padStart(2, "0")}s`;
   };
 
   // ── Current question ──
@@ -396,6 +402,7 @@ export default function TestSectionPage({
             }`}
           >
             <Clock className="w-4 h-4" />
+            <span className="text-xs font-normal font-sans mr-0.5">Time Left</span>
             {formatTime(timeLeft)}
           </div>
 
@@ -434,7 +441,7 @@ export default function TestSectionPage({
         {/* ── Question display area ── */}
         <div className="flex-1 flex flex-col overflow-y-auto bg-gray-50">
           {currentQuestion && (
-            <div className="flex-1 p-6 md:p-8 max-w-4xl">
+              <div className="w-full p-6 md:p-8">
               {/* Breadcrumb */}
               <p className="text-gray-500 text-sm mb-5">
                 Part {currentQuestion.partNumber}: {currentQuestion.partName} &middot; Question{" "}
@@ -519,7 +526,7 @@ export default function TestSectionPage({
         </div>
 
         {/* ── Right sidebar — Part-wise question navigator ── */}
-        <aside className="w-72 bg-white border-l border-gray-200 overflow-y-auto shrink-0 hidden md:block">
+        <aside className="w-96 bg-white border-l border-gray-200 overflow-y-auto shrink-0 hidden md:block">
           <div className="p-5">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
               Question Navigator
@@ -611,6 +618,42 @@ export default function TestSectionPage({
           </p>
           <div className="text-gray-400 text-xs">
             All questions are compulsory
+          </div>
+        </div>
+      )}
+
+      {/* ── Resume Test Modal ── */}
+      {showResumeModal && (
+        <div className="fixed inset-0 z-[999] bg-black/75 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-5">
+              <AlertTriangle className="w-8 h-8 text-amber-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Test Paused</h2>
+            <p className="text-gray-500 text-sm mb-1">You exited fullscreen mode. Your test has been paused.</p>
+            <p className="text-gray-500 text-sm mb-6">Your progress and remaining time are saved. Click below to resume.</p>
+
+            <div
+              className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-mono text-xl font-bold border mb-6 ${
+                timeLeft <= 300
+                  ? "bg-red-50 text-red-600 border-red-200"
+                  : timeLeft <= 600
+                  ? "bg-amber-50 text-amber-600 border-amber-200"
+                  : "bg-gray-50 text-gray-700 border-gray-200"
+              }`}
+            >
+              <Clock className="w-5 h-5" />
+              <span className="text-xs font-normal font-sans mr-0.5">Time Left</span>
+              {formatTime(timeLeft)}
+            </div>
+
+            <button
+              onClick={handleResumeTest}
+              className="w-full bg-blue-600 text-white py-3 px-6 rounded-xl font-bold text-base hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-sm"
+            >
+              <Maximize className="w-5 h-5" />
+              Resume Test
+            </button>
           </div>
         </div>
       )}

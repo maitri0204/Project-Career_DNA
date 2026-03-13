@@ -1,7 +1,145 @@
 import { Response } from "express";
+import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
 import Question from "../models/Question";
 import TestResult, { SECTION_ORDER } from "../models/TestResult";
+
+/* ── Helpers for breakdown computation ── */
+
+const DIMENSION_OPPOSITE: Record<string, string> = { E:"I",I:"E",S:"N",N:"S",T:"F",F:"T",J:"P",P:"J" };
+
+const EQ_NAMES: Record<number, string>  = { 1:"Self-Awareness", 2:"Emotional Regulation", 3:"Empathy", 4:"Social Skills" };
+const LS_NAMES: Record<number, string>  = { 1:"Visual", 2:"Auditory", 3:"Reading/Writing", 4:"Kinesthetic", 5:"Logical", 6:"Social", 7:"Solitary", 8:"Musical" };
+const BS_NAMES: Record<number, string>  = { 1:"Adaptability", 2:"Teamwork", 3:"Leadership Skills", 4:"Communication Skills" };
+const SR_NAMES: Record<number, string>  = { 1:"Stress Triggers & Awareness", 2:"Emotional Coping Strategies", 3:"Problem-Solving & Self-Talk", 4:"Resilience & Bounce-Back Skills" };
+const RIASEC_MAP: Record<number, { code:string; title:string }> = {
+  1:{code:"R",title:"Realistic"}, 2:{code:"I",title:"Investigative"}, 3:{code:"A",title:"Artistic"},
+  4:{code:"S",title:"Social"}, 5:{code:"E",title:"Enterprising"}, 6:{code:"C",title:"Conventional"},
+};
+const LS_CODES = ["V","A","R","K","L","S","I","M"];
+
+function extractAnswers(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (raw instanceof Map) {
+    (raw as Map<string, string>).forEach((v, k) => { out[String(k)] = String(v); });
+  } else if (raw && typeof raw === "object") {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      out[String(k)] = String(v ?? "");
+    }
+  }
+  return out;
+}
+
+interface QDoc { _id: mongoose.Types.ObjectId; partNumber: number; partName: string; questionText: string; correctAnswer: string; }
+interface PartResult { partNumber: number; partName: string; score: number; maxScore: number; percentage: number; }
+interface Breakdown {
+  parts: PartResult[];
+  totalScore: number;
+  maxScore: number;
+  overallPercentage: number;
+  personalityType?: string;
+  personalityDimensions?: { pair:string; winner:string; letterA:string; letterB:string; percentA:number; percentB:number }[];
+  dominantCode?: string;
+}
+
+function computeBreakdown(testType: string, answers: Record<string, string>, questions: QDoc[]): Breakdown {
+
+  /* ── COGNITIVE / APTITUDE: 1 point per correct ── */
+  if (testType === "COGNITIVE" || testType === "APTITUDE") {
+    const pm = new Map<number, { partName:string; score:number; total:number }>();
+    for (const q of questions) {
+      if (!pm.has(q.partNumber)) pm.set(q.partNumber, { partName: q.partName, score:0, total:0 });
+      const p = pm.get(q.partNumber)!;
+      p.total++;
+      const ans = (answers[q._id.toString()] ?? "").toUpperCase();
+      if (ans && q.correctAnswer && ans === q.correctAnswer.toUpperCase()) p.score++;
+    }
+    const parts = Array.from(pm.entries()).sort((a,b)=>a[0]-b[0]).map(([pn,p])=>({
+      partNumber:pn, partName:p.partName, score:p.score, maxScore:p.total,
+      percentage: p.total ? Math.round((p.score/p.total)*100) : 0,
+    }));
+    const totalScore = parts.reduce((s,p)=>s+p.score, 0);
+    const maxScore   = parts.reduce((s,p)=>s+p.maxScore, 0);
+    return { parts, totalScore, maxScore, overallPercentage: maxScore ? Math.round((totalScore/maxScore)*100) : 0 };
+  }
+
+  /* ── PERSONALITY: MBTI dimension pairs ── */
+  if (testType === "PERSONALITY") {
+    const cnt: Record<string,number> = { E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0 };
+    for (const q of questions) {
+      const ans = answers[q._id.toString()];
+      if (!ans || !q.correctAnswer) continue;
+      const dimA = q.correctAnswer;
+      const dimB = DIMENSION_OPPOSITE[dimA];
+      if (!dimB) continue;
+      if (ans === "A") cnt[dimA]++;
+      else if (ans === "B") cnt[dimB]++;
+    }
+    const pairs: [string,string][] = [["E","I"],["S","N"],["T","F"],["J","P"]];
+    const dims = pairs.map(([a,b]) => {
+      const total = cnt[a] + cnt[b] || 1;
+      return { pair:`${a}/${b}`, winner: cnt[a]>=cnt[b] ? a : b, letterA:a, letterB:b,
+               percentA: Math.round((cnt[a]/total)*100), percentB: Math.round((cnt[b]/total)*100) };
+    });
+    const personalityType = dims.map(d=>d.winner).join("");
+    const parts: PartResult[] = dims.map((d,i) => ({
+      partNumber: i+1, partName: d.pair, score: Math.max(d.percentA,d.percentB), maxScore:100,
+      percentage: Math.max(d.percentA,d.percentB),
+    }));
+    return { parts, totalScore:0, maxScore:0, overallPercentage:0, personalityType, personalityDimensions: dims };
+  }
+
+  /* ── CAREER_INTEREST: RIASEC Yes% ── */
+  if (testType === "CAREER_INTEREST") {
+    const dm = new Map<string,{ title:string; pn:number; yes:number; total:number }>();
+    for (const [pn, d] of Object.entries(RIASEC_MAP)) dm.set(d.code, { title:d.title, pn:Number(pn), yes:0, total:0 });
+    for (const q of questions) {
+      const domain = RIASEC_MAP[q.partNumber];
+      if (!domain) continue;
+      const d = dm.get(domain.code)!;
+      d.total++;
+      if ((answers[q._id.toString()] ?? "").toUpperCase() === "A") d.yes++;
+    }
+    const parts = Array.from(dm.entries())
+      .map(([code, d]) => ({ partNumber:d.pn, partName:`${code} — ${d.title}`, score:d.yes, maxScore:d.total, percentage: d.total ? Math.round((d.yes/d.total)*100) : 0 }))
+      .sort((a,b) => b.percentage-a.percentage);
+    const dominantCode = parts.slice(0,3).map(p=>p.partName.split(" ")[0]).join("");
+    const totalScore = parts.reduce((s,p)=>s+p.score, 0);
+    const maxScore   = parts.reduce((s,p)=>s+p.maxScore, 0);
+    return { parts, totalScore, maxScore, overallPercentage: maxScore ? Math.round((totalScore/maxScore)*100) : 0, dominantCode };
+  }
+
+  /* ── WEIGHTED types: EQ / Learning Style / Behavioral / Stress ── */
+  const compNames = testType==="EMOTIONAL_INTELLIGENCE" ? EQ_NAMES : testType==="LEARNING_STYLE" ? LS_NAMES : testType==="BEHAVIORAL_SOCIAL" ? BS_NAMES : SR_NAMES;
+  const smBase: Record<string,number> = testType==="LEARNING_STYLE" ? {A:3,B:2,C:1} : {A:4,B:3,C:2,D:1};
+  const smRev:  Record<string,number> = {A:1,B:2,C:3,D:4};
+  const maxPQ = testType==="LEARNING_STYLE" ? 3 : 4;
+
+  const pm = new Map<number, { partName:string; score:number; maxScore:number }>();
+  for (const q of questions) {
+    if (!pm.has(q.partNumber)) pm.set(q.partNumber, { partName: compNames[q.partNumber]||q.partName, score:0, maxScore:0 });
+    const p = pm.get(q.partNumber)!;
+    p.maxScore += maxPQ;
+    const ans = (answers[q._id.toString()] ?? "").toUpperCase();
+    p.score += (testType==="STRESS_RESILIENCE" && q.questionText.trim().endsWith("*"))
+      ? (smRev[ans] || 0)
+      : (smBase[ans] || 0);
+  }
+  const parts = Array.from(pm.entries()).sort((a,b)=>a[0]-b[0]).map(([pn,p])=>({
+    partNumber:pn, partName:p.partName, score:p.score, maxScore:p.maxScore,
+    percentage: p.maxScore ? Math.round((p.score/p.maxScore)*100) : 0,
+  }));
+  const totalScore = parts.reduce((s,p)=>s+p.score, 0);
+  const maxScore   = parts.reduce((s,p)=>s+p.maxScore, 0);
+
+  let dominantCode: string | undefined;
+  if (testType === "LEARNING_STYLE") {
+    dominantCode = [...parts].sort((a,b)=>b.percentage-a.percentage||b.score-a.score)
+      .slice(0,3).map(p=>LS_CODES[p.partNumber-1]??p.partNumber.toString()).join("");
+  }
+
+  return { parts, totalScore, maxScore, overallPercentage: maxScore ? Math.round((totalScore/maxScore)*100) : 0, dominantCode };
+}
 
 // Start a new test attempt or return existing in-progress one
 export const startTest = async (
@@ -268,17 +406,27 @@ export const getResult = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const result = await TestResult.findById(id).populate(
-      "student",
-      "firstName middleName lastName email"
-    );
+    const result = await TestResult.findById(id)
+      .populate("student", "firstName middleName lastName email")
+      .lean();
 
     if (!result) {
       res.status(404).json({ message: "Result not found" });
       return;
     }
 
-    res.json({ result });
+    // Compute per-section breakdowns (uses correctAnswer from DB, avoids Map serialization issues)
+    const breakdowns: Record<string, Breakdown> = {};
+    for (const section of result.sections) {
+      if (!section.completed) continue;
+      const answers = extractAnswers(section.answers);
+      const questions = await Question.find({ testType: section.testType })
+        .sort({ partNumber: 1, questionNumber: 1 })
+        .lean() as unknown as QDoc[];
+      breakdowns[section.testType] = computeBreakdown(section.testType, answers, questions);
+    }
+
+    res.json({ result, breakdowns });
   } catch (error) {
     console.error("Error getting result:", error);
     res.status(500).json({ message: "Failed to get result" });

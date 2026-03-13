@@ -157,7 +157,7 @@ function LoginPageContent() {
           <h2 className="text-4xl font-bold text-gray-900 mb-2">
             {step === "signup" ? "Create Account" : "Welcome"}
           </h2>
-          <p className="text-gray-600">Numeric Assessment Platform</p>
+          <p className="text-gray-600">Career Compass Platform</p>
         </div>
 
         {/* Card */}
@@ -356,7 +356,7 @@ function LoginPageContent() {
 
         {/* Copyright */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          © {new Date().getFullYear()} Numeric Assessment. All rights reserved.
+          © {new Date().getFullYear()} Career Compass. All rights reserved.
         </p>
       </div>
     </div>

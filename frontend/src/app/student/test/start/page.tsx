@@ -193,7 +193,7 @@ export default function TestStartPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header banner */}
       <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold">Numeric Assessment</h1>
+        <h1 className="text-2xl font-bold">Career Compass</h1>
         <p className="mt-1 text-blue-100">
           Complete all 8 sections in any order to finish your assessment.
         </p>

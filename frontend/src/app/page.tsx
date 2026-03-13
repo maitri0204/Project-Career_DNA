@@ -167,7 +167,7 @@ export default function Home() {
               variants={fadeInUp}
               className="text-xl text-slate-600 mb-10 max-w-lg leading-relaxed"
             >
-              A comprehensive <span className="font-bold text-[#0e5080]">Numeric Assessment</span> designed to evaluate and improve mathematical thinking and numeric reasoning skills.
+              A comprehensive <span className="font-bold text-[#0e5080]">Career Compass</span> designed to evaluate and improve mathematical thinking and numeric reasoning skills.
             </motion.p>
 
             <motion.div variants={fadeInUp} className="flex flex-wrap gap-4">
@@ -431,7 +431,7 @@ export default function Home() {
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-lg">N</span>
             </div>
-            <span className="text-white font-bold text-lg">Numeric Assessment</span>
+            <span className="text-white font-bold text-lg">Career Compass</span>
           </div>
           <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center gap-2">
@@ -440,7 +440,7 @@ export default function Home() {
             </div>
           </div>
           <p className="text-sm">
-            © {new Date().getFullYear()} Numeric Assessment. All rights reserved.
+            © {new Date().getFullYear()} Career Compass. All rights reserved.
           </p>
         </div>
       </footer>
