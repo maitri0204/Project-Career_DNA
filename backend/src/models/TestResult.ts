@@ -16,6 +16,8 @@ export type TestType = (typeof SECTION_ORDER)[number];
 export interface ISectionResult {
   testType: string;
   answers: Map<string, string>;
+  /** The question IDs selected for this section (random subset) */
+  questionIds: mongoose.Types.ObjectId[];
   completed: boolean;
   score: number;
   timeSpent: number;
@@ -23,6 +25,7 @@ export interface ISectionResult {
 
 export interface ITestResult extends Document {
   student: mongoose.Types.ObjectId;
+  serviceCode: string;
   status: "IN_PROGRESS" | "COMPLETED";
   sections: ISectionResult[];
   totalScore: number;
@@ -33,6 +36,7 @@ const sectionResultSchema = new Schema(
   {
     testType: { type: String, required: true },
     answers: { type: Map, of: String, default: () => new Map() },
+    questionIds: { type: [Schema.Types.ObjectId], default: [] },
     completed: { type: Boolean, default: false },
     score: { type: Number, default: 0 },
     timeSpent: { type: Number, default: 0 },
@@ -47,6 +51,10 @@ const testResultSchema = new Schema<ITestResult>(
       ref: "User",
       required: true,
     },
+    serviceCode: {
+      type: String,
+      required: true,
+    },
     status: {
       type: String,
       enum: ["IN_PROGRESS", "COMPLETED"],
@@ -54,14 +62,7 @@ const testResultSchema = new Schema<ITestResult>(
     },
     sections: {
       type: [sectionResultSchema],
-      default: () =>
-        SECTION_ORDER.map((t) => ({
-          testType: t,
-          answers: new Map(),
-          completed: false,
-          score: 0,
-          timeSpent: 0,
-        })),
+      default: [],
     },
     totalScore: { type: Number, default: 0 },
     submittedAt: { type: Date },

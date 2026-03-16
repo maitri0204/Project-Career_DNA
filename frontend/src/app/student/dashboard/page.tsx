@@ -2,163 +2,308 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import toast from "react-hot-toast";
-import { testAPI } from "@/lib/api";
-import { TestAttempt, TestResult, User } from "@/types";
+import { serviceAPI } from "@/lib/api";
+import { ServiceItem, User } from "@/types";
 
 export default function StudentDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [results, setResults] = useState<TestResult[]>([]);
-  const [inProgress, setInProgress] = useState<TestAttempt | null>(null);
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [enrolledCodes, setEnrolledCodes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
-      try { setUser(JSON.parse(userStr)); } catch { /* noop */ }
+      try {
+        setUser(JSON.parse(userStr));
+      } catch {
+        /* noop */
+      }
     }
 
-    Promise.all([
-      testAPI.getMyResults().catch(() => ({ data: { results: [] } })),
-      testAPI.getInProgress().catch(() => ({ data: { attempt: null } })),
-    ]).then(([resultsRes, inProgressRes]) => {
-      setResults(resultsRes.data.results || []);
-      setInProgress(inProgressRes.data.attempt || null);
-    }).finally(() => setLoading(false));
+    const loadAll = async () => {
+      try {
+        const [servicesRes, enrollmentsRes] = await Promise.all([
+          serviceAPI.getAll(),
+          serviceAPI
+            .getMyEnrollments()
+            .catch(() => ({ data: { enrollments: [] } })),
+        ]);
+
+        setServices(servicesRes.data.services || []);
+        const codes = new Set<string>(
+          (enrollmentsRes.data.enrollments || []).map(
+            (e: { serviceCode: string }) => e.serviceCode
+          )
+        );
+        setEnrolledCodes(codes);
+      } catch {
+        toast.error("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAll();
   }, []);
 
-  const latestResult: TestResult | null = results[0] ?? null;
-  const inProgressCompleted = inProgress?.sections?.filter((s) => s.completed).length || 0;
+  const handleEnroll = async (service: ServiceItem) => {
+    setEnrollingId(service._id);
+    try {
+      await serviceAPI.enroll(service._id);
+      setEnrolledCodes((prev) => new Set([...prev, service.code]));
+      toast.success(`Successfully registered for ${service.name}!`);
+
+      // Update user in localStorage
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        try {
+          const u = JSON.parse(userStr);
+          u.enrolledServices = u.enrolledServices || [];
+          u.enrolledServices.push({
+            serviceCode: service.code,
+            service: service._id,
+            enrolledAt: new Date().toISOString(),
+          });
+          localStorage.setItem("user", JSON.stringify(u));
+          setUser(u);
+        } catch {
+          /* noop */
+        }
+      }
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      toast.error(error.response?.data?.message || "Enrollment failed");
+    } finally {
+      setEnrollingId(null);
+    }
+  };
+
+  const handleViewDetails = (serviceCode: string) => {
+    router.push(`/student/test?service=${serviceCode}`);
+  };
+
+  const enrolledServices = services.filter((s) => enrolledCodes.has(s.code));
+  const availableServices = services.filter((s) => !enrolledCodes.has(s.code));
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">
+            Loading your dashboard...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Resume test banner */}
-      {inProgress && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-bold text-amber-900">Resume Your Test</h2>
-            <p className="text-amber-700 text-sm mt-1">
-              You have an in-progress assessment. {inProgressCompleted}/8 sections completed.
-            </p>
-          </div>
-          <button
-            onClick={() => router.push("/student/test/start")}
-            className="px-5 py-2.5 bg-amber-600 text-white rounded-xl font-semibold text-sm hover:bg-amber-700 transition shadow-sm whitespace-nowrap"
-          >
-            Resume Test →
-          </button>
-        </div>
-      )}
-
-      {/* Welcome banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold">
-          Welcome, {user?.firstName ?? "Student"}! 👋
-        </h1>
-        <p className="mt-1 text-blue-100">
-          {results.length === 0
-            ? "You haven't taken the Career Compass assessment yet."
-            : `You've completed ${results.length} test${results.length > 1 ? "s" : ""} so far.`}
-        </p>
-        {!inProgress && (
-          <button
-            onClick={() => router.push("/student/test")}
-            className="mt-4 px-5 py-2.5 bg-white text-blue-700 rounded-xl font-semibold text-sm hover:bg-blue-50 transition shadow-sm"
-          >
-            {results.length === 0 ? "Take Test Now →" : "Take Test Again →"}
-          </button>
-        )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 right-20 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl animate-pulse"></div>
+        <div
+          className="absolute bottom-20 left-20 w-96 h-96 bg-cyan-400/10 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "1.5s" }}
+        ></div>
       </div>
 
-      {/* Latest result snapshot */}
-      {latestResult && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Latest Result</h2>
-            <Link
-              href={`/student/results/${latestResult._id}`}
-              className="text-sm text-blue-600 hover:underline font-medium"
-            >
-              View Details →
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-gray-50 rounded-xl">
-              <p className="text-3xl font-bold text-gray-900">{latestResult.totalScore}</p>
-              <p className="text-xs text-gray-500 mt-1">Total Score</p>
-            </div>
-            <div className="text-center p-4 bg-blue-50 rounded-xl">
-              <p className="text-3xl font-bold text-blue-700">
-                {new Date(latestResult.submittedAt).toLocaleDateString("en-IN", {
-                  day: "numeric", month: "short",
-                })}
-              </p>
-              <p className="text-xs text-blue-600 mt-1">Test Date</p>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-xl">
-              <p className="text-3xl font-bold text-green-700">#{results.length}</p>
-              <p className="text-xs text-green-600 mt-1">Attempt</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* No tests taken yet */}
-      {!loading && results.length === 0 && (
-        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
-          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">Start Your Assessment</h3>
-          <p className="text-gray-500 text-sm mb-4">
-            Take the Career Compass assessment to evaluate your mathematical skills and get personalized insights.
+      {/* Main Content */}
+      <div className="relative max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {/* ═══ MY SERVICES ═══ */}
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+            My Services
+          </h1>
+          <p className="text-gray-600 text-base mt-2">
+            Manage your registered services and track your progress.
           </p>
-          <button
-            onClick={() => router.push("/student/test")}
-            className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition"
-          >
-            Take Test Now
-          </button>
         </div>
-      )}
 
-      {/* Past results list */}
-      {results.length > 1 && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Past Results</h2>
-            <Link href="/student/results" className="text-sm text-blue-600 hover:underline font-medium">
-              View All →
-            </Link>
-          </div>
-          <div className="space-y-2">
-            {results.slice(1, 4).map((result, idx) => (
-              <Link
-                key={result._id}
-                href={`/student/results/${result._id}`}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition border border-transparent hover:border-gray-200"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 font-semibold text-xs">
-                    #{results.length - 1 - idx}
-                  </div>
-                  <p className="text-sm text-gray-700">
-                    {new Date(result.submittedAt).toLocaleDateString("en-IN", {
-                      day: "numeric", month: "short", year: "numeric",
-                    })}
-                  </p>
-                </div>
-                <div className="text-sm font-bold text-gray-900">{result.totalScore}</div>
-              </Link>
+        {enrolledServices.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {enrolledServices.map((service) => (
+              <ServiceCard
+                key={service._id}
+                service={service}
+                isRegistered={true}
+                onViewDetails={handleViewDetails}
+              />
             ))}
           </div>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              No Services Yet
+            </h3>
+            <p className="text-gray-600">
+              You haven&apos;t registered for any services yet. Browse below to
+              get started.
+            </p>
+          </div>
+        )}
+
+        {/* ═══ OTHER SERVICES ═══ */}
+        {availableServices.length > 0 && (
+          <div className="mt-12">
+            <div className="mb-6">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                Services
+              </h2>
+              <p className="text-gray-600 text-base mt-2">
+                Explore and register for additional services.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {availableServices.map((service) => (
+                <ServiceCard
+                  key={service._id}
+                  service={service}
+                  isRegistered={false}
+                  onRegister={handleEnroll}
+                  loading={enrollingId === service._id}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── ServiceCard Component (matching temp-core style) ─── */
+
+function ServiceCard({
+  service,
+  isRegistered = false,
+  onRegister,
+  onViewDetails,
+  loading = false,
+}: {
+  service: ServiceItem;
+  isRegistered?: boolean;
+  onRegister?: (service: ServiceItem) => void;
+  onViewDetails?: (serviceCode: string) => void;
+  loading?: boolean;
+}) {
+  return (
+    <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden group">
+      {/* Card Header with Gradient */}
+      <div className="h-2 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
+
+      <div className="p-6">
+        {/* Icon */}
+        <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+          <svg
+            className="w-8 h-8 text-blue-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+            />
+          </svg>
         </div>
-      )}
+
+        {/* Title */}
+        <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+          {service.name}
+        </h3>
+
+        {/* Description */}
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+          {service.description}
+        </p>
+
+        {/* Status Badge */}
+        {isRegistered && (
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mb-4">
+            <svg
+              className="w-4 h-4 mr-1"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Registered
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 mt-4">
+          {isRegistered ? (
+            <button
+              onClick={() => onViewDetails?.(service.code)}
+              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-md hover:shadow-lg cursor-pointer"
+            >
+              View Details
+            </button>
+          ) : (
+            <button
+              onClick={() => onRegister?.(service)}
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Registering...
+                </span>
+              ) : (
+                "Register"
+              )}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

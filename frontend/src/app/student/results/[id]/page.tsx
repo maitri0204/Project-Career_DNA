@@ -3,12 +3,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import toast from "react-hot-toast";
 import { testAPI } from "@/lib/api";
 import { TestResult } from "@/types";
 import {
-  Brain, Calculator, Fingerprint, Compass, Heart,
-  BookOpen, Users, Shield, ArrowLeft, Loader2,
+  ArrowLeft, Loader2,
   Trophy, Star, Award, TrendingUp,
 } from "lucide-react";
 
@@ -61,40 +61,42 @@ interface AllBreakdowns {
    ================================================================ */
 
 const PERSONALITY_TYPES: Record<string, { title: string; description: string }> = {
-  ISTJ: { title: "The Inspector", description: "Responsible, thorough, dependable. You value traditions and loyalty." },
-  ISFJ: { title: "The Protector", description: "Warm, considerate, and dedicated. You care deeply about others." },
-  INFJ: { title: "The Counselor", description: "Insightful, principled, and compassionate." },
-  INTJ: { title: "The Mastermind", description: "Strategic, determined, and innovative." },
-  ISTP: { title: "The Craftsperson", description: "Practical, observant, and analytical." },
-  ISFP: { title: "The Composer", description: "Gentle, sensitive, and artistic." },
-  INFP: { title: "The Healer", description: "Idealistic, empathetic, and creative." },
-  INTP: { title: "The Architect", description: "Logical, original, and curious." },
-  ESTP: { title: "The Dynamo", description: "Energetic, pragmatic, and observant." },
-  ESFP: { title: "The Performer", description: "Spontaneous, energetic, and fun-loving." },
-  ENFP: { title: "The Champion", description: "Enthusiastic, creative, and sociable." },
-  ENTP: { title: "The Visionary", description: "Inventive, strategic, and enterprising." },
-  ESTJ: { title: "The Supervisor", description: "Organized, logical, and assertive." },
-  ESFJ: { title: "The Provider", description: "Caring, sociable, and traditional." },
-  ENFJ: { title: "The Teacher", description: "Charismatic, empathetic, and organized." },
-  ENTJ: { title: "The Commander", description: "Bold, imaginative, and strong-willed." },
+  ISTJ: { title: "The Systematic Organizer", description: "You value structure, responsibility, and reliability. You approach tasks methodically and follow through with dedication." },
+  ISFJ: { title: "The Protective Supporter", description: "You are warm, considerate, and deeply committed to supporting those around you." },
+  INFJ: { title: "The Purpose Driven Guide", description: "You are insightful, principled, and driven by a strong sense of purpose and compassion." },
+  INTJ: { title: "The Master Strategist", description: "You are strategic, determined, and innovative — always planning several steps ahead." },
+  ISTP: { title: "The Practical Problem Solver", description: "You are hands-on, analytical, and thrive when solving real-world problems." },
+  ISFP: { title: "The Artist", description: "You are gentle, sensitive, and express yourself through creativity and aesthetics." },
+  INFP: { title: "The Value Creator", description: "You are idealistic, empathetic, and driven by deeply held personal values." },
+  INTP: { title: "The Curious", description: "You are logical, original, and endlessly curious about how things work." },
+  ESTP: { title: "The Action Taker", description: "You are energetic, pragmatic, and thrive in fast-paced, hands-on situations." },
+  ESFP: { title: "The Joyful Performer", description: "You are spontaneous, energetic, and bring joy and enthusiasm to everything you do." },
+  ENFP: { title: "The Visionary", description: "You are enthusiastic, creative, and always exploring new possibilities." },
+  ENTP: { title: "The Entrepreneur", description: "You are inventive, strategic, and love tackling complex challenges with fresh ideas." },
+  ESTJ: { title: "The Strategic Leader", description: "You are organized, logical, and naturally take charge to get things done efficiently." },
+  ESFJ: { title: "The Community Builder", description: "You are caring, sociable, and dedicated to building strong communities around you." },
+  ENFJ: { title: "The Mentor Leader", description: "You are charismatic, empathetic, and naturally inspire and guide others." },
+  ENTJ: { title: "The Visionary Director", description: "You are bold, strategic, and driven to lead with a compelling long-term vision." },
 };
 
+/* Student-friendly letter mapping: E→SO, I→RO, S→PO, N→CT, T→LD, F→VD, J→SW, P→FW */
+const FRIENDLY_LETTER: Record<string, string> = { E:"SO", I:"RO", S:"PO", N:"CT", T:"LD", F:"VD", J:"SW", P:"FW" };
 const MBTI_META: Record<string, { label: string; topName: string; bottomName: string; color: string }> = {
-  "E/I": { label: "ENERGY STYLE",    topName: "EXTRAVERTS", bottomName: "INTROVERT",   color: "#7a8c6e" },
-  "S/N": { label: "COGNITIVE STYLE", topName: "SENSORS",    bottomName: "INTUITIVES",  color: "#8bb8d0" },
-  "T/F": { label: "VALUES STYLE",    topName: "THINKERS",   bottomName: "FEELERS",     color: "#7b6b8a" },
-  "J/P": { label: "LIFE STYLE",      topName: "JUDGERS",    bottomName: "PERCEIVERS",  color: "#c07c5a" },
+  "E/I": { label: "SOCIAL STYLE",       topName: "SOCIAL ORIENTATION",         bottomName: "REFLECTIVE ORIENTATION",     color: "#7a8c6e" },
+  "S/N": { label: "THINKING STYLE",     topName: "PRACTICAL OBSERVATION",      bottomName: "CONCEPTUAL THINKING",        color: "#8bb8d0" },
+  "T/F": { label: "DECISION STYLE",     topName: "LOGICAL DECISION",           bottomName: "VALUE-BASED DECISION",       color: "#7b6b8a" },
+  "J/P": { label: "WORKING STYLE",      topName: "STRUCTURED WORKING",         bottomName: "FLEXIBLE WORKING",           color: "#c07c5a" },
 };
 
 const SECTION_CONFIG = [
-  { type: "COGNITIVE",             title: "Cognitive Ability",        icon: Brain,       color: "bg-violet-100", textColor: "text-violet-600" },
-  { type: "APTITUDE",              title: "Aptitude Tests",            icon: Calculator,  color: "bg-cyan-100",   textColor: "text-cyan-600"   },
-  { type: "PERSONALITY",           title: "Personality Assessment",    icon: Fingerprint, color: "bg-rose-100",   textColor: "text-rose-600"   },
-  { type: "CAREER_INTEREST",       title: "Career Interest",           icon: Compass,     color: "bg-amber-100",  textColor: "text-amber-600"  },
-  { type: "EMOTIONAL_INTELLIGENCE",title: "Emotional Intelligence",    icon: Heart,       color: "bg-pink-100",   textColor: "text-pink-600"   },
-  { type: "LEARNING_STYLE",        title: "Learning Style",            icon: BookOpen,    color: "bg-emerald-100",textColor: "text-emerald-600"},
-  { type: "BEHAVIORAL_SOCIAL",     title: "Behavioral & Social Skills",icon: Users,       color: "bg-blue-100",   textColor: "text-blue-600"   },
-  { type: "STRESS_RESILIENCE",     title: "Stress & Resilience",       icon: Shield,      color: "bg-teal-100",   textColor: "text-teal-600"   },
+  { type: "COGNITIVE",              title: "Cognitive Ability",          img: "/CognitiveIntelligence.jpeg", color: "bg-violet-100", textColor: "text-violet-600" },
+  { type: "APTITUDE",               title: "Aptitude Tests",              img: "/Aptitude.jpeg",              color: "bg-cyan-100",   textColor: "text-cyan-600"   },
+  { type: "PERSONALITY",            title: "Personality Assessment",      img: "/PersonalityType.jpeg",      color: "bg-purple-100", textColor: "text-purple-600" },
+  { type: "CAREER_INTEREST",        title: "Career Interest",             img: "/CareerInterest.jpeg",       color: "bg-amber-100",  textColor: "text-amber-600"  },
+  { type: "EMOTIONAL_INTELLIGENCE", title: "Emotional Intelligence",      img: "/EmotionalIntelligence.jpeg",color: "bg-pink-100",   textColor: "text-pink-600"   },
+  { type: "LEARNING_STYLE",         title: "Learning Style",              img: "/LearningStyle.jpeg",        color: "bg-emerald-100",textColor: "text-emerald-600"},
+  { type: "BEHAVIORAL_SOCIAL",      title: "Behavioral & Social Skills",  img: "/Behavioural.jpeg",          color: "bg-blue-100",   textColor: "text-blue-600"   },
+  { type: "STRESS_RESILIENCE",      title: "Stress & Resilience",         img: "/Stress&Resilience.jpeg",    color: "bg-teal-100",   textColor: "text-teal-600"   },
 ];
 
 /* ================================================================
@@ -164,8 +166,8 @@ function VerticalBarChart({
           <div className="flex justify-around gap-2 sm:gap-4 mt-2">
             {bars.map((bar, idx) => (
               <div key={idx} className="flex-1 text-center" style={{ maxWidth: 110 }}>
-                <p className="text-[11px] font-semibold text-gray-700 leading-tight">{bar.label}</p>
-                {bar.subLabel && <p className="text-[10px] text-gray-400 mt-0.5">{bar.subLabel}</p>}
+                <p className="text-sm font-bold text-gray-800 leading-tight">{bar.label}</p>
+                {bar.subLabel && <p className="text-xs font-semibold text-gray-500 mt-0.5">{bar.subLabel}</p>}
               </div>
             ))}
           </div>
@@ -180,19 +182,26 @@ function VerticalBarChart({
    ================================================================ */
 
 function SectionCard({
-  title, subtitle, Icon, iconBg, iconColor, borderColor, headerBg, children,
+  title, subtitle, imgSrc, borderColor, headerBg, children,
 }: {
-  title: string; subtitle: string; Icon: React.ComponentType<{ className?: string }>;
-  iconBg: string; iconColor: string; borderColor: string; headerBg: string; children: React.ReactNode;
+  title: string; subtitle: string; imgSrc: string;
+  borderColor: string; headerBg: string; children: React.ReactNode;
 }) {
   return (
     <div className={`bg-white rounded-2xl border ${borderColor} shadow-sm overflow-hidden`}>
-      <div className={`${headerBg} px-6 py-4 border-b ${borderColor}`}>
-        <div className="flex items-center gap-3">
-          <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
-            <Icon className={`w-6 h-6 ${iconColor}`} />
+      <div className={`${headerBg} border-b ${borderColor}`}>
+        <div className="flex items-center gap-0">
+          {/* Image side */}
+          <div className="relative w-28 h-28 shrink-0 overflow-hidden">
+            <Image
+              src={imgSrc}
+              alt={title}
+              fill
+              className="object-cover"
+            />
           </div>
-          <div>
+          {/* Text side */}
+          <div className="flex-1 px-5 py-4">
             <h2 className="text-lg font-bold text-gray-900">{title}</h2>
             <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
           </div>
@@ -341,7 +350,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
         <div className="mt-6 flex flex-wrap gap-4">
           <Pill label="Total Score" value={String(result.totalScore)} />
           <Pill label="Sections"    value={`${completedCount}/8`} />
-          {breakdowns.PERSONALITY?.personalityType && <Pill label="MBTI Type"   value={breakdowns.PERSONALITY.personalityType} />}
+          {breakdowns.PERSONALITY?.personalityType && <Pill label="Personality Type" value={PERSONALITY_TYPES[breakdowns.PERSONALITY.personalityType]?.title ?? breakdowns.PERSONALITY.personalityType} />}
           {breakdowns.CAREER_INTEREST?.dominantCode  && <Pill label="RIASEC Code" value={breakdowns.CAREER_INTEREST.dominantCode} />}
           {breakdowns.LEARNING_STYLE?.dominantCode   && <Pill label="Learn Style" value={breakdowns.LEARNING_STYLE.dominantCode} />}
         </div>
@@ -349,7 +358,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ══ 1. COGNITIVE ══ */}
       {breakdowns.COGNITIVE && (
-        <SectionCard title="Cognitive Ability Assessment" subtitle={`Overall: ${breakdowns.COGNITIVE.totalScore}/${breakdowns.COGNITIVE.maxScore} (${breakdowns.COGNITIVE.overallPercentage}%)`} Icon={Brain} iconBg="bg-violet-100" iconColor="text-violet-600" borderColor="border-violet-200" headerBg="bg-violet-50">
+        <SectionCard title="Cognitive Ability Assessment" subtitle={`Overall: ${breakdowns.COGNITIVE.totalScore}/${breakdowns.COGNITIVE.maxScore} (${breakdowns.COGNITIVE.overallPercentage}%)`} imgSrc="/CognitiveIntelligence.jpeg" borderColor="border-violet-200" headerBg="bg-violet-50">
           <VerticalBarChart
             bars={breakdowns.COGNITIVE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
             barColor="bg-violet-500"
@@ -359,7 +368,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ══ 2. APTITUDE ══ */}
       {breakdowns.APTITUDE && (
-        <SectionCard title="Aptitude Tests" subtitle={`Overall: ${breakdowns.APTITUDE.totalScore}/${breakdowns.APTITUDE.maxScore} (${breakdowns.APTITUDE.overallPercentage}%)`} Icon={Calculator} iconBg="bg-cyan-100" iconColor="text-cyan-600" borderColor="border-cyan-200" headerBg="bg-cyan-50">
+        <SectionCard title="Aptitude Tests" subtitle={`Overall: ${breakdowns.APTITUDE.totalScore}/${breakdowns.APTITUDE.maxScore} (${breakdowns.APTITUDE.overallPercentage}%)`} imgSrc="/Aptitude.jpeg" borderColor="border-cyan-200" headerBg="bg-cyan-50">
           <VerticalBarChart
             bars={breakdowns.APTITUDE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
             barColor="bg-cyan-500"
@@ -369,7 +378,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ══ 3. PERSONALITY ══ */}
       {breakdowns.PERSONALITY?.personalityDimensions && breakdowns.PERSONALITY.personalityType && (
-        <SectionCard title="Personality Assessment" subtitle={`${breakdowns.PERSONALITY.personalityType}${perInfo ? ` — ${perInfo.title}` : ""}`} Icon={Fingerprint} iconBg="bg-rose-100" iconColor="text-rose-600" borderColor="border-rose-200" headerBg="bg-rose-50">
+        <SectionCard title="Personality Assessment" subtitle={perInfo ? perInfo.title : breakdowns.PERSONALITY.personalityType} imgSrc="/PersonalityType.jpeg" borderColor="border-purple-200" headerBg="bg-purple-50">
           {perInfo && <p className="text-gray-600 text-sm mb-6 leading-relaxed">{perInfo.description}</p>}
 
           {/* 4-column MBTI grid */}
@@ -384,12 +393,12 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
                   <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${topIsWinner ? "text-gray-800" : "text-gray-400"}`}>{meta.topName}</p>
                   <p className={`text-xs font-semibold mb-2 ${topIsWinner ? "text-gray-700" : "text-gray-300"}`}>{dim.percentA}%</p>
                   <div className="flex flex-col items-center gap-1.5">
-                    <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-extrabold text-white shadow-md transition-all duration-500 ${topIsWinner ? "scale-110 ring-4 ring-offset-2" : "opacity-50"}`} style={{ backgroundColor: meta.color }}>
-                      {dim.letterA}
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-extrabold text-white shadow-md transition-all duration-500 ${topIsWinner ? "scale-110 ring-4 ring-offset-2" : "opacity-50"}`} style={{ backgroundColor: meta.color }}>
+                      {FRIENDLY_LETTER[dim.letterA] ?? dim.letterA}
                     </div>
                     <div className="text-gray-300 text-lg leading-none select-none">↕</div>
-                    <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-extrabold text-white shadow-md transition-all duration-500 ${!topIsWinner ? "scale-110 ring-4 ring-offset-2" : "opacity-50"}`} style={{ backgroundColor: meta.color }}>
-                      {dim.letterB}
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-extrabold text-white shadow-md transition-all duration-500 ${!topIsWinner ? "scale-110 ring-4 ring-offset-2" : "opacity-50"}`} style={{ backgroundColor: meta.color }}>
+                      {FRIENDLY_LETTER[dim.letterB] ?? dim.letterB}
                     </div>
                   </div>
                   <p className={`text-xs font-semibold mt-2 ${!topIsWinner ? "text-gray-700" : "text-gray-300"}`}>{dim.percentB}%</p>
@@ -400,11 +409,11 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
           </div>
 
           <div className="text-center">
-            <div className="inline-flex items-center gap-3 bg-rose-50 border border-rose-200 rounded-xl px-6 py-3">
-              <Star className="w-5 h-5 text-rose-500" />
+            <div className="inline-flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-xl px-6 py-3">
+              <Star className="w-5 h-5 text-purple-500" />
               <div>
-                <p className="text-lg font-extrabold text-rose-700 tracking-wider">{breakdowns.PERSONALITY.personalityType}</p>
-                {perInfo && <p className="text-xs text-rose-500 font-semibold">{perInfo.title}</p>}
+                <p className="text-lg font-extrabold text-purple-700 tracking-wider">{perInfo?.title ?? breakdowns.PERSONALITY.personalityType}</p>
+                {perInfo && <p className="text-xs text-purple-500 font-semibold">{perInfo.description}</p>}
               </div>
             </div>
           </div>
@@ -413,7 +422,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ══ 4. CAREER INTEREST ══ */}
       {breakdowns.CAREER_INTEREST && (
-        <SectionCard title="Career Interest (RIASEC)" subtitle={`Dominant Code: ${breakdowns.CAREER_INTEREST.dominantCode ?? "—"}`} Icon={Compass} iconBg="bg-amber-100" iconColor="text-amber-600" borderColor="border-amber-200" headerBg="bg-amber-50">
+        <SectionCard title="Career Interest (RIASEC)" subtitle={`Dominant Code: ${breakdowns.CAREER_INTEREST.dominantCode ?? "—"}`} imgSrc="/CareerInterest.jpeg" borderColor="border-amber-200" headerBg="bg-amber-50">
           <VerticalBarChart
             bars={breakdowns.CAREER_INTEREST.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore} Yes` }))}
             barColor="bg-amber-500"
@@ -423,7 +432,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ══ 5. EMOTIONAL INTELLIGENCE ══ */}
       {breakdowns.EMOTIONAL_INTELLIGENCE && (
-        <SectionCard title="Emotional Intelligence (EQ)" subtitle={`Total: ${breakdowns.EMOTIONAL_INTELLIGENCE.totalScore}/${breakdowns.EMOTIONAL_INTELLIGENCE.maxScore} (${breakdowns.EMOTIONAL_INTELLIGENCE.overallPercentage}%)`} Icon={Heart} iconBg="bg-pink-100" iconColor="text-pink-600" borderColor="border-pink-200" headerBg="bg-pink-50">
+        <SectionCard title="Emotional Intelligence (EQ)" subtitle={`Total: ${breakdowns.EMOTIONAL_INTELLIGENCE.totalScore}/${breakdowns.EMOTIONAL_INTELLIGENCE.maxScore} (${breakdowns.EMOTIONAL_INTELLIGENCE.overallPercentage}%)`} imgSrc="/EmotionalIntelligence.jpeg" borderColor="border-pink-200" headerBg="bg-pink-50">
           <VerticalBarChart
             bars={breakdowns.EMOTIONAL_INTELLIGENCE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
             barColor="bg-pink-500"
@@ -433,14 +442,14 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ══ 6. LEARNING STYLE ══ */}
       {breakdowns.LEARNING_STYLE && (
-        <SectionCard title="Learning Style Assessment" subtitle={`Total: ${breakdowns.LEARNING_STYLE.totalScore}/${breakdowns.LEARNING_STYLE.maxScore} (${breakdowns.LEARNING_STYLE.overallPercentage}%)`} Icon={BookOpen} iconBg="bg-emerald-100" iconColor="text-emerald-600" borderColor="border-emerald-200" headerBg="bg-emerald-50">
+        <SectionCard title="Learning Style Assessment" subtitle={`Total: ${breakdowns.LEARNING_STYLE.totalScore}/${breakdowns.LEARNING_STYLE.maxScore} (${breakdowns.LEARNING_STYLE.overallPercentage}%)`} imgSrc="/LearningStyle.jpeg" borderColor="border-emerald-200" headerBg="bg-emerald-50">
           <LearningStyleDisplay bd={breakdowns.LEARNING_STYLE} />
         </SectionCard>
       )}
 
       {/* ══ 7. BEHAVIORAL & SOCIAL ══ */}
       {breakdowns.BEHAVIORAL_SOCIAL && (
-        <SectionCard title="Behavioral & Social Skills" subtitle={`Total: ${breakdowns.BEHAVIORAL_SOCIAL.totalScore}/${breakdowns.BEHAVIORAL_SOCIAL.maxScore} (${breakdowns.BEHAVIORAL_SOCIAL.overallPercentage}%)`} Icon={Users} iconBg="bg-blue-100" iconColor="text-blue-600" borderColor="border-blue-200" headerBg="bg-blue-50">
+        <SectionCard title="Behavioral & Social Skills" subtitle={`Total: ${breakdowns.BEHAVIORAL_SOCIAL.totalScore}/${breakdowns.BEHAVIORAL_SOCIAL.maxScore} (${breakdowns.BEHAVIORAL_SOCIAL.overallPercentage}%)`} imgSrc="/Behavioural.jpeg" borderColor="border-blue-200" headerBg="bg-blue-50">
           <VerticalBarChart
             bars={breakdowns.BEHAVIORAL_SOCIAL.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
             barColor="bg-blue-500"
@@ -450,7 +459,7 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ══ 8. STRESS & RESILIENCE ══ */}
       {breakdowns.STRESS_RESILIENCE && (
-        <SectionCard title="Stress & Resilience Assessment" subtitle={`Total: ${breakdowns.STRESS_RESILIENCE.totalScore}/${breakdowns.STRESS_RESILIENCE.maxScore} (${breakdowns.STRESS_RESILIENCE.overallPercentage}%)`} Icon={Shield} iconBg="bg-teal-100" iconColor="text-teal-600" borderColor="border-teal-200" headerBg="bg-teal-50">
+        <SectionCard title="Stress & Resilience Assessment" subtitle={`Total: ${breakdowns.STRESS_RESILIENCE.totalScore}/${breakdowns.STRESS_RESILIENCE.maxScore} (${breakdowns.STRESS_RESILIENCE.overallPercentage}%)`} imgSrc="/Stress&Resilience.jpeg" borderColor="border-teal-200" headerBg="bg-teal-50">
           <VerticalBarChart
             bars={breakdowns.STRESS_RESILIENCE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
             barColor="bg-teal-500"
@@ -466,13 +475,16 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {SECTION_CONFIG.map((cfg) => {
             const section = result.sections?.find((s: { testType: string }) => s.testType === cfg.type);
-            const Icon = cfg.icon;
             const done = section?.completed;
             const bd = breakdowns[cfg.type as keyof AllBreakdowns];
             return (
               <div key={cfg.type} className={`bg-white rounded-2xl border shadow-sm p-5 ${done ? "border-gray-200" : "border-gray-100 opacity-40"}`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-10 h-10 rounded-xl ${cfg.color} flex items-center justify-center`}><Icon className={`w-5 h-5 ${cfg.textColor}`} /></div>
+                  <div className={`w-10 h-10 rounded-xl ${cfg.color} flex items-center justify-center overflow-hidden shrink-0`}>
+                    <div className="relative w-10 h-10">
+                      <Image src={cfg.img} alt={cfg.title} fill className="object-cover rounded-xl" />
+                    </div>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-bold text-gray-900 truncate">{cfg.title}</h3>
                     {done ? <p className="text-xs text-green-600 font-medium">✓ Completed</p> : <p className="text-xs text-gray-400">Not completed</p>}
@@ -481,9 +493,8 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
                 {done && bd && (
                   <div className="flex items-center gap-3">
                     {cfg.type === "PERSONALITY" ? (
-                      <div className="bg-rose-50 rounded-xl px-4 py-2 text-center flex-1">
-                        <p className="text-lg font-bold text-rose-600">{bd.personalityType ?? "—"}</p>
-                        <p className="text-[10px] text-rose-400 mt-0.5">{bd.personalityType ? (PERSONALITY_TYPES[bd.personalityType]?.title ?? "Type") : "Type"}</p>
+                      <div className="bg-purple-50 rounded-xl px-4 py-2 text-center flex-1">
+                        <p className="text-sm font-bold text-purple-600 leading-snug">{bd.personalityType ? (PERSONALITY_TYPES[bd.personalityType]?.title ?? bd.personalityType) : "—"}</p>
                       </div>
                     ) : (
                       <>

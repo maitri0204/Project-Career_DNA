@@ -59,15 +59,15 @@ export default function Navbar() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center group gap-2">
               <Image
-                src="/career-compass-logo.png"
-                alt="Career Compass"
+                src="/career-dna-logo.png"
+                alt="Career DNA Profiler"
                 width={230}
                 height={46}
-                className="h-18 w-auto hidden sm:block"
+                className="h-19 w-auto hidden sm:block"
                 priority
               />
               <span className="text-lg font-bold text-gray-900 sm:hidden">
-                Career Compass
+                Career DNA Profiler
               </span>
             </Link>
           </div>

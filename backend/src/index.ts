@@ -6,6 +6,7 @@ import routes from "./routes";
 import authRoutes from "./routes/authRoutes";
 import questionRoutes from "./routes/questionRoutes";
 import testRoutes from "./routes/testRoutes";
+import serviceRoutes from "./routes/serviceRoutes";
 
 // Load environment variables
 dotenv.config();
@@ -29,6 +30,7 @@ app.use("/api", routes);
 app.use("/api/auth", authRoutes);
 app.use("/api/questions", questionRoutes);
 app.use("/api/test", testRoutes);
+app.use("/api/services", serviceRoutes);
 
 // Health check route
 app.get("/api/health", (_req: Request, res: Response) => {

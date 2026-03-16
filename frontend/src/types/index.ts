@@ -10,6 +10,20 @@ export interface User {
   country?: string;
   state?: string;
   city?: string;
+  enrolledServices?: {
+    service: string;
+    serviceCode: string;
+    enrolledAt: string;
+  }[];
+}
+
+export interface ServiceItem {
+  _id: string;
+  code: string;
+  name: string;
+  description: string;
+  sections: string[];
+  isActive: boolean;
 }
 
 export interface QuestionOption {
@@ -32,6 +46,7 @@ export interface Question {
 export interface SectionResult {
   testType: string;
   answers: Record<string, string>;
+  questionIds?: string[];
   completed: boolean;
   score: number;
   timeSpent: number;
@@ -40,6 +55,7 @@ export interface SectionResult {
 export interface TestAttempt {
   _id: string;
   student: User | string;
+  serviceCode: string;
   status: "IN_PROGRESS" | "COMPLETED";
   sections: SectionResult[];
   totalScore?: number;
@@ -51,6 +67,7 @@ export interface TestAttempt {
 export interface TestResult {
   _id: string;
   student: User | string;
+  serviceCode: string;
   sections: SectionResult[];
   totalScore: number;
   status: "IN_PROGRESS" | "COMPLETED";

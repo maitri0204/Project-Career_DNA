@@ -6,11 +6,13 @@ import {
   startTest,
   getInProgressAttempt,
   getAttempt,
+  getQuestionsForSection,
   submitSection,
   completeTest,
   getMyResults,
   getResult,
   adminGetAllResults,
+  adminGetStudentDetail,
 } from "../controllers/testController";
 
 const router = Router();
@@ -19,6 +21,7 @@ const router = Router();
 router.post("/start", authenticate, authorize(USER_ROLE.STUDENT), startTest);
 router.get("/in-progress", authenticate, getInProgressAttempt);
 router.get("/attempt/:id", authenticate, getAttempt);
+router.get("/attempt/:id/questions/:testType", authenticate, getQuestionsForSection);
 router.put(
   "/:id/submit-section",
   authenticate,
@@ -34,6 +37,12 @@ router.get(
   authenticate,
   authorize(USER_ROLE.ADMIN),
   adminGetAllResults
+);
+router.get(
+  "/admin/students/:studentId",
+  authenticate,
+  authorize(USER_ROLE.ADMIN),
+  adminGetStudentDetail
 );
 
 // Shared

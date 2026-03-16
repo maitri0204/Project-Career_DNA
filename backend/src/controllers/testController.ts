@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
 import Question from "../models/Question";
 import TestResult, { SECTION_ORDER } from "../models/TestResult";
+import { SECTIONS_BY_SERVICE, ServiceCode } from "../models/Service";
+import User from "../models/User";
 
 /* ── Helpers for breakdown computation ── */
 
@@ -141,6 +143,51 @@ function computeBreakdown(testType: string, answers: Record<string, string>, que
   return { parts, totalScore, maxScore, overallPercentage: maxScore ? Math.round((totalScore/maxScore)*100) : 0, dominantCode };
 }
 
+/* ── Random pick helper ── */
+function pickRandom<T>(arr: T[], count: number): T[] {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, arr.length));
+}
+
+/**
+ * Select random questions for a given testType.
+ * Rule I (most sections): take half the questions from each part.
+ * Rule II (PERSONALITY): 7 random from each of parts 1-4, all 10 from part 5.
+ */
+async function selectQuestionsForSection(testType: string): Promise<mongoose.Types.ObjectId[]> {
+  const allQuestions = await Question.find({ testType })
+    .sort({ partNumber: 1, questionNumber: 1 })
+    .lean();
+
+  // Group by part
+  const partMap = new Map<number, typeof allQuestions>();
+  for (const q of allQuestions) {
+    if (!partMap.has(q.partNumber)) partMap.set(q.partNumber, []);
+    partMap.get(q.partNumber)!.push(q);
+  }
+
+  const selected: mongoose.Types.ObjectId[] = [];
+
+  if (testType === "PERSONALITY") {
+    // Parts 1-4: take 7 random each; Part 5: take all 10
+    for (const [pn, qs] of partMap.entries()) {
+      if (pn <= 4) {
+        selected.push(...pickRandom(qs, 7).map((q) => q._id));
+      } else {
+        selected.push(...qs.map((q) => q._id)); // all of part 5
+      }
+    }
+  } else {
+    // Take half from each part (ceiling)
+    for (const [, qs] of partMap.entries()) {
+      const half = Math.ceil(qs.length / 2);
+      selected.push(...pickRandom(qs, half).map((q) => q._id));
+    }
+  }
+
+  return selected;
+}
+
 // Start a new test attempt or return existing in-progress one
 export const startTest = async (
   req: AuthRequest,
@@ -148,9 +195,29 @@ export const startTest = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
+    const { serviceCode } = req.body as { serviceCode?: string };
 
+    if (!serviceCode || !SECTIONS_BY_SERVICE[serviceCode as ServiceCode]) {
+      res.status(400).json({ message: "Valid serviceCode is required (GRADE_8_9, GRADE_10, GRADE_11_12)" });
+      return;
+    }
+
+    // Check user is enrolled in this service
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+    const isEnrolled = user.enrolledServices.some((e) => e.serviceCode === serviceCode);
+    if (!isEnrolled) {
+      res.status(403).json({ message: "You are not enrolled in this service" });
+      return;
+    }
+
+    // Check for existing in-progress attempt for this service
     let attempt = await TestResult.findOne({
       student: userId,
+      serviceCode,
       status: "IN_PROGRESS",
     });
 
@@ -159,7 +226,27 @@ export const startTest = async (
       return;
     }
 
-    attempt = await TestResult.create({ student: userId });
+    // Build sections with randomly selected questions
+    const sectionTypes = SECTIONS_BY_SERVICE[serviceCode as ServiceCode];
+    const sections = [];
+    for (const testType of sectionTypes) {
+      const questionIds = await selectQuestionsForSection(testType);
+      sections.push({
+        testType,
+        answers: new Map(),
+        questionIds,
+        completed: false,
+        score: 0,
+        timeSpent: 0,
+      });
+    }
+
+    attempt = await TestResult.create({
+      student: userId,
+      serviceCode,
+      sections,
+    });
+
     res.status(201).json({ attempt });
   } catch (error) {
     console.error("Error starting test:", error);
@@ -174,14 +261,50 @@ export const getInProgressAttempt = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const attempt = await TestResult.findOne({
-      student: userId,
-      status: "IN_PROGRESS",
-    });
+    const { serviceCode } = req.query as { serviceCode?: string };
+
+    const filter: Record<string, unknown> = { student: userId, status: "IN_PROGRESS" };
+    if (serviceCode) filter.serviceCode = serviceCode;
+
+    const attempt = await TestResult.findOne(filter);
     res.json({ attempt: attempt || null });
   } catch (error) {
     console.error("Error checking in-progress test:", error);
     res.status(500).json({ message: "Failed to check in-progress test" });
+  }
+};
+
+// Get the selected questions for a section of an attempt
+// Returns questions (without correctAnswer) in the pre-selected random order
+export const getQuestionsForSection = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id, testType } = req.params;
+    const userId = req.user!.id;
+
+    const attempt = await TestResult.findOne({ _id: id, student: userId });
+    if (!attempt) {
+      res.status(404).json({ message: "Attempt not found" });
+      return;
+    }
+
+    const section = attempt.sections.find((s) => s.testType === testType);
+    if (!section) {
+      res.status(404).json({ message: "Section not found in attempt" });
+      return;
+    }
+
+    // Fetch only the pre-selected questions, strip correctAnswer
+    const questions = await Question.find({ _id: { $in: section.questionIds } })
+      .select("-correctAnswer")
+      .sort({ partNumber: 1, questionNumber: 1 });
+
+    res.json({ questions });
+  } catch (error) {
+    console.error("Error getting section questions:", error);
+    res.status(500).json({ message: "Failed to get section questions" });
   }
 };
 
@@ -217,13 +340,6 @@ export const submitSection = async (
     const { testType, answers, timeSpent } = req.body;
     const userId = req.user!.id;
 
-    // Validate test type
-    const sectionIndex = SECTION_ORDER.indexOf(testType);
-    if (sectionIndex === -1) {
-      res.status(400).json({ message: "Invalid section type" });
-      return;
-    }
-
     const attempt = await TestResult.findOne({
       _id: id,
       student: userId,
@@ -235,6 +351,7 @@ export const submitSection = async (
       return;
     }
 
+    // Validate test type exists in this attempt's sections
     const section = attempt.sections.find((s) => s.testType === testType);
     if (!section) {
       res.status(400).json({ message: "Section not found in attempt" });
@@ -248,8 +365,8 @@ export const submitSection = async (
       return;
     }
 
-    // Fetch questions to calculate score
-    const questions = await Question.find({ testType }).sort({
+    // Fetch only the pre-selected questions for scoring
+    const questions = await Question.find({ _id: { $in: section.questionIds } }).sort({
       partNumber: 1,
       questionNumber: 1,
     });
@@ -357,7 +474,7 @@ export const completeTest = async (
       return;
     }
 
-    const allCompleted = attempt.sections.every((s) => s.completed);
+    const allCompleted = attempt.sections.length > 0 && attempt.sections.every((s) => s.completed);
     if (!allCompleted) {
       res.status(400).json({
         message: "All sections must be completed before final submission",
@@ -415,14 +532,24 @@ export const getResult = async (
       return;
     }
 
-    // Compute per-section breakdowns (uses correctAnswer from DB, avoids Map serialization issues)
+    // Compute per-section breakdowns using only the selected questions
     const breakdowns: Record<string, Breakdown> = {};
     for (const section of result.sections) {
       if (!section.completed) continue;
       const answers = extractAnswers(section.answers);
-      const questions = await Question.find({ testType: section.testType })
-        .sort({ partNumber: 1, questionNumber: 1 })
-        .lean() as unknown as QDoc[];
+      // Use only the pre-selected questionIds for this section
+      const qIds = (section.questionIds || []).map((id: unknown) => id);
+      let questions: QDoc[];
+      if (qIds.length > 0) {
+        questions = await Question.find({ _id: { $in: qIds } })
+          .sort({ partNumber: 1, questionNumber: 1 })
+          .lean() as unknown as QDoc[];
+      } else {
+        // Fallback for old attempts without questionIds
+        questions = await Question.find({ testType: section.testType })
+          .sort({ partNumber: 1, questionNumber: 1 })
+          .lean() as unknown as QDoc[];
+      }
       breakdowns[section.testType] = computeBreakdown(section.testType, answers, questions);
     }
 
@@ -430,6 +557,33 @@ export const getResult = async (
   } catch (error) {
     console.error("Error getting result:", error);
     res.status(500).json({ message: "Failed to get result" });
+  }
+};
+
+// Admin: get one student's profile + all their completed results
+export const adminGetStudentDetail = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { studentId } = req.params;
+    const student = await User.findById(studentId).select(
+      "firstName middleName lastName email mobile country state city enrolledServices createdAt"
+    );
+    if (!student) {
+      res.status(404).json({ message: "Student not found" });
+      return;
+    }
+
+    const results = await TestResult.find({
+      student: studentId,
+      status: "COMPLETED",
+    }).sort({ submittedAt: -1 });
+
+    res.json({ student, results });
+  } catch (error) {
+    console.error("Error getting student detail:", error);
+    res.status(500).json({ message: "Failed to get student detail" });
   }
 };
 

@@ -1,6 +1,12 @@
 import mongoose, { Document, Schema } from "mongoose";
 import { USER_ROLE } from "../types/roles";
 
+export interface IEnrollment {
+  service: mongoose.Types.ObjectId;
+  serviceCode: string;
+  enrolledAt: Date;
+}
+
 export interface IUser extends Document {
   firstName: string;
   middleName?: string;
@@ -15,9 +21,19 @@ export interface IUser extends Document {
   isActive: boolean;
   otp?: string;
   otpExpires?: Date;
+  enrolledServices: IEnrollment[];
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+const enrollmentSchema = new Schema(
+  {
+    service: { type: Schema.Types.ObjectId, ref: "Service", required: true },
+    serviceCode: { type: String, required: true },
+    enrolledAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const userSchema = new Schema<IUser>(
   {
@@ -54,6 +70,10 @@ const userSchema = new Schema<IUser>(
     otpExpires: {
       type: Date,
       default: undefined,
+    },
+    enrolledServices: {
+      type: [enrollmentSchema],
+      default: [],
     },
   },
   {

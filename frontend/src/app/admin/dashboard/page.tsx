@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { adminTestAPI, questionAPI } from "@/lib/api";
-import { Question, TestResult, User } from "@/types";
+import { adminTestAPI } from "@/lib/api";
+import { TestResult, User } from "@/types";
 
 interface StudentRow {
   id: string;
@@ -14,70 +14,18 @@ interface StudentRow {
   latestResult: TestResult;
 }
 
-const RIASEC_DOMAIN_MAP: Record<number, string> = {
-  1: "R",
-  2: "I",
-  3: "A",
-  4: "S",
-  5: "E",
-  6: "C",
-};
-
-function calculateDominantRiasecCode(
-  answers: Record<string, string>,
-  questions: Question[]
-): string {
-  const base: Record<string, { yesCount: number; total: number }> = {
-    R: { yesCount: 0, total: 0 },
-    I: { yesCount: 0, total: 0 },
-    A: { yesCount: 0, total: 0 },
-    S: { yesCount: 0, total: 0 },
-    E: { yesCount: 0, total: 0 },
-    C: { yesCount: 0, total: 0 },
-  };
-
-  questions.forEach((q) => {
-    const domain = RIASEC_DOMAIN_MAP[q.partNumber];
-    if (!domain) return;
-
-    base[domain].total += 1;
-    if (answers[q._id] === "A") {
-      base[domain].yesCount += 1;
-    }
-  });
-
-  const ranked = Object.entries(base)
-    .map(([code, value]) => ({
-      code,
-      yesCount: value.yesCount,
-      percentage: value.total
-        ? Math.round((value.yesCount / value.total) * 100)
-        : 0,
-    }))
-    .sort(
-      (a, b) =>
-        b.percentage - a.percentage || b.yesCount - a.yesCount || a.code.localeCompare(b.code)
-    );
-
-  return ranked.slice(0, 3).map((r) => r.code).join("");
-}
-
 export default function AdminDashboard() {
   const [results, setResults] = useState<TestResult[]>([]);
-  const [careerInterestQuestions, setCareerInterestQuestions] = useState<Question[]>([]);
   const [totalStudents, setTotalStudents] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    Promise.all([
-      adminTestAPI.getAllResults(),
-      questionAPI.getByTestTypeAdmin("CAREER_INTEREST"),
-    ])
-      .then(([resultsRes, careerRes]) => {
-        setResults(resultsRes.data.results || []);
-        setTotalStudents(resultsRes.data.totalStudents ?? 0);
-        setCareerInterestQuestions(careerRes.data.questions || []);
+    adminTestAPI
+      .getAllResults()
+      .then((res) => {
+        setResults(res.data.results || []);
+        setTotalStudents(res.data.totalStudents ?? 0);
       })
       .catch(() => toast.error("Failed to load results"))
       .finally(() => setLoading(false));
@@ -128,7 +76,7 @@ export default function AdminDashboard() {
       {/* Page title */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-500 mt-1">Manage and review all student Career Compass assessments</p>
+        <p className="text-gray-500 mt-1">Manage and review all student Career DNA Profiler assessments</p>
       </div>
 
       {/* Stats */}
@@ -207,7 +155,6 @@ export default function AdminDashboard() {
                   <th className="text-left px-6 py-3 font-semibold text-gray-600">Student</th>
                   <th className="text-left px-6 py-3 font-semibold text-gray-600">Email</th>
                   <th className="text-left px-6 py-3 font-semibold text-gray-600">Tests Taken</th>
-                  <th className="text-left px-6 py-3 font-semibold text-gray-600">RIASEC</th>
                   <th className="text-left px-6 py-3 font-semibold text-gray-600">Last Activity</th>
                   <th className="text-left px-6 py-3 font-semibold text-gray-600">Action</th>
                 </tr>
@@ -215,17 +162,6 @@ export default function AdminDashboard() {
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((row, idx) => {
                   const s = row.user;
-                  const careerSection = row.latestResult.sections?.find(
-                    (section: { testType: string; completed: boolean }) =>
-                      section.testType === "CAREER_INTEREST" && section.completed
-                  );
-                  const dominantCode = careerSection
-                    ? calculateDominantRiasecCode(
-                        careerSection.answers || {},
-                        careerInterestQuestions
-                      )
-                    : "—";
-
                   return (
                     <tr key={row.id} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4 text-gray-500">{idx + 1}</td>
@@ -236,11 +172,6 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
                           {row.totalTests}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-semibold">
-                          {dominantCode}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-gray-500">

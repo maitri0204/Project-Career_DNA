@@ -140,7 +140,7 @@ export default function SignupPage() {
           <h2 className="text-4xl font-bold text-gray-900 mb-2">
             {step === "form" ? "Create Account" : "Verify Email"}
           </h2>
-          <p className="text-gray-600">Career Compass Platform</p>
+          <p className="text-gray-600">Career DNA Profiler Platform</p>
         </div>
 
         {/* Card */}
@@ -303,7 +303,7 @@ export default function SignupPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          © {new Date().getFullYear()} Career Compass. All rights reserved.
+          © {new Date().getFullYear()} Career DNA Profiler. All rights reserved.
         </p>
       </div>
     </div>

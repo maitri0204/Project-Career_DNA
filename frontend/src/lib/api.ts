@@ -94,11 +94,15 @@ export const questionAPI = {
 
 // ─── Test API (student) ───
 export const testAPI = {
-  start: () => api.post("/test/start"),
+  start: (serviceCode: string) => api.post("/test/start", { serviceCode }),
 
-  getInProgress: () => api.get("/test/in-progress"),
+  getInProgress: (serviceCode?: string) =>
+    api.get("/test/in-progress", { params: serviceCode ? { serviceCode } : {} }),
 
   getAttempt: (id: string) => api.get(`/test/attempt/${id}`),
+
+  getQuestionsForSection: (attemptId: string, testType: string) =>
+    api.get(`/test/attempt/${attemptId}/questions/${testType}`),
 
   submitSection: (
     id: string,
@@ -116,10 +120,19 @@ export const testAPI = {
   getResult: (id: string) => api.get(`/test/results/${id}`),
 };
 
+// ─── Service API ───
+export const serviceAPI = {
+  getAll: () => api.get("/services"),
+  enroll: (serviceId: string) => api.post(`/services/${serviceId}/enroll`),
+  getMyEnrollments: () => api.get("/services/my-enrollments"),
+};
+
 // ─── Admin Test API ───
 export const adminTestAPI = {
   getAllResults: () => api.get("/test/admin/results"),
   getResult: (id: string) => api.get(`/test/results/${id}`),
+  getStudentDetail: (studentId: string) =>
+    api.get(`/test/admin/students/${studentId}`),
 };
 
 export default api;

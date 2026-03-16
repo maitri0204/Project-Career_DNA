@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Career Compass",
-  description: "Career Compass Platform",
+  title: "Career DNA Profiler",
+  description: "Career DNA Profiler Platform",
 };
 
 export default function RootLayout({

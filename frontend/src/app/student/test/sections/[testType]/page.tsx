@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { questionAPI, testAPI } from "@/lib/api";
+import { testAPI } from "@/lib/api";
 import { Question, TestAttempt } from "@/types";
 import toast from "react-hot-toast";
 import {
@@ -32,6 +32,9 @@ const SECTION_NAMES: Record<string, string> = {
   STRESS_RESILIENCE: "Stress and Resilience Assessment",
 };
 
+// Only these sections have a timer — 1 minute per question
+const TIMED_SECTIONS = new Set(["COGNITIVE", "APTITUDE"]);
+
 export default function TestSectionPage({
   params,
 }: {
@@ -40,6 +43,7 @@ export default function TestSectionPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const attemptId = searchParams.get("attemptId") || "";
+  const serviceCode = searchParams.get("service") || "";
 
   const [testType, setTestType] = useState<string>("");
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -48,7 +52,8 @@ export default function TestSectionPage({
   const [visited, setVisited] = useState<Set<string>>(new Set());
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [activePart, setActivePart] = useState(1);
-  const [timeLeft, setTimeLeft] = useState(90 * 60); // 90 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(0); // set after loading
+  const [isTimed, setIsTimed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -167,12 +172,20 @@ export default function TestSectionPage({
     const loadData = async () => {
       try {
         const [questionsRes, attemptRes] = await Promise.all([
-          questionAPI.getByTestType(testType),
+          testAPI.getQuestionsForSection(attemptId, testType),
           testAPI.getAttempt(attemptId),
         ]);
 
         const qs: Question[] = questionsRes.data.questions;
         setQuestions(qs);
+
+        // Determine if this section is timed
+        const timed = TIMED_SECTIONS.has(testType);
+        setIsTimed(timed);
+        if (timed) {
+          // Timer = number of questions in minutes (1 min per question)
+          setTimeLeft(qs.length * 60);
+        }
 
         // Group by part
         const partMap = new Map<number, PartInfo>();
@@ -213,7 +226,7 @@ export default function TestSectionPage({
       } catch (err: unknown) {
         const error = err as { response?: { data?: { message?: string } } };
         toast.error(error.response?.data?.message || "Failed to load questions");
-        router.push("/student/test/start");
+        router.push(`/student/test/start?service=${serviceCode}`);
       } finally {
         setLoading(false);
       }
@@ -222,9 +235,9 @@ export default function TestSectionPage({
     loadData();
   }, [testType, attemptId, router]);
 
-  // ── Timer ──
+  // ── Timer (only for timed sections) ──
   useEffect(() => {
-    if (loading || showResumeModal) return;
+    if (loading || showResumeModal || !isTimed) return;
 
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
@@ -241,7 +254,7 @@ export default function TestSectionPage({
       if (timerRef.current) clearInterval(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, showResumeModal]);
+  }, [loading, showResumeModal, isTimed]);
 
   // ── Auto submit ──
   const handleAutoSubmit = useCallback(async () => {
@@ -271,7 +284,7 @@ export default function TestSectionPage({
       localStorage.removeItem(`autosave_${testType}_${attemptId}`);
 
       toast.success(`${SECTION_NAMES[testType] || testType} submitted!`);
-      router.push("/student/test/start");
+      router.push(`/student/test/start?service=${serviceCode}`);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       toast.error(error.response?.data?.message || "Failed to submit section");
@@ -371,7 +384,7 @@ export default function TestSectionPage({
           <AlertTriangle className="w-4 h-4" />
           <span>Please stay in fullscreen mode during the test.</span>
           <button
-            onClick={enterFullscreen}
+            onClick={() => enterFullscreen()}
             className="ml-2 bg-amber-900 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-amber-800 transition flex items-center gap-1"
           >
             <Maximize className="w-3 h-3" /> Fullscreen
@@ -391,20 +404,27 @@ export default function TestSectionPage({
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Timer */}
-          <div
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-base font-bold border ${
-              timeLeft <= 300
-                ? "bg-red-50 text-red-600 border-red-200 animate-pulse"
-                : timeLeft <= 600
-                ? "bg-amber-50 text-amber-600 border-amber-200"
-                : "bg-gray-50 text-gray-700 border-gray-200"
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span className="text-xs font-normal font-sans mr-0.5">Time Left</span>
-            {formatTime(timeLeft)}
-          </div>
+          {/* Timer — only for timed sections */}
+          {isTimed ? (
+            <div
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-base font-bold border ${
+                timeLeft <= 300
+                  ? "bg-red-50 text-red-600 border-red-200 animate-pulse"
+                  : timeLeft <= 600
+                  ? "bg-amber-50 text-amber-600 border-amber-200"
+                  : "bg-gray-50 text-gray-700 border-gray-200"
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <span className="text-xs font-normal font-sans mr-0.5">Time Left</span>
+              {formatTime(timeLeft)}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-50 text-green-700 border border-green-200 text-sm font-medium">
+              <Clock className="w-4 h-4" />
+              No Time Limit
+            </div>
+          )}
 
           {/* Progress */}
           <span className="text-gray-500 text-sm font-medium">
@@ -564,7 +584,7 @@ export default function TestSectionPage({
                         <button
                           key={q._id}
                           onClick={() => goToQuestion(globalIdx)}
-                          title={`Question ${q.questionNumber}`}
+                          title={`Question ${globalIdx + 1}`}
                           className={`w-8 h-8 rounded-full text-xs font-semibold flex items-center justify-center transition cursor-pointer border ${
                             isCurrent
                               ? "bg-blue-600 text-white border-blue-600"
@@ -575,7 +595,7 @@ export default function TestSectionPage({
                               : "bg-gray-300 text-gray-500 border-gray-300"
                           }`}
                         >
-                          {q.questionNumber}
+                          {globalIdx + 1}
                         </button>
                       );
                     })}
@@ -633,19 +653,21 @@ export default function TestSectionPage({
             <p className="text-gray-500 text-sm mb-1">You exited fullscreen mode. Your test has been paused.</p>
             <p className="text-gray-500 text-sm mb-6">Your progress and remaining time are saved. Click below to resume.</p>
 
-            <div
-              className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-mono text-xl font-bold border mb-6 ${
-                timeLeft <= 300
-                  ? "bg-red-50 text-red-600 border-red-200"
-                  : timeLeft <= 600
-                  ? "bg-amber-50 text-amber-600 border-amber-200"
-                  : "bg-gray-50 text-gray-700 border-gray-200"
-              }`}
-            >
-              <Clock className="w-5 h-5" />
-              <span className="text-xs font-normal font-sans mr-0.5">Time Left</span>
-              {formatTime(timeLeft)}
-            </div>
+            {isTimed && (
+              <div
+                className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-mono text-xl font-bold border mb-6 ${
+                  timeLeft <= 300
+                    ? "bg-red-50 text-red-600 border-red-200"
+                    : timeLeft <= 600
+                    ? "bg-amber-50 text-amber-600 border-amber-200"
+                    : "bg-gray-50 text-gray-700 border-gray-200"
+                }`}
+              >
+                <Clock className="w-5 h-5" />
+                <span className="text-xs font-normal font-sans mr-0.5">Time Left</span>
+                {formatTime(timeLeft)}
+              </div>
+            )}
 
             <button
               onClick={handleResumeTest}

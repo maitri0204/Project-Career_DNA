@@ -1,23 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { testAPI } from "@/lib/api";
 import { TestAttempt } from "@/types";
 import toast from "react-hot-toast";
+import Image from "next/image";
 import {
-  Brain,
-  Calculator,
   CheckCircle2,
   PlayCircle,
   Loader2,
   Lock,
-  Fingerprint,
-  Compass,
-  Heart,
-  BookOpen,
-  Users,
-  Shield,
 } from "lucide-react";
 
 const SECTION_CONFIG = [
@@ -26,9 +19,7 @@ const SECTION_CONFIG = [
     title: "Cognitive Ability Assessment",
     description:
       "Verbal reasoning, numerical reasoning, spatial reasoning, and memory & processing speed.",
-    icon: Brain,
-    iconBg: "bg-violet-100",
-    iconColor: "text-violet-600",
+    image: "/CognitiveIntelligence.jpeg",
     btnColor: "bg-violet-600 hover:bg-violet-700",
     borderColor: "border-violet-200",
   },
@@ -37,9 +28,7 @@ const SECTION_CONFIG = [
     title: "Aptitude Tests",
     description:
       "Logical reasoning, numerical aptitude, verbal aptitude, mechanical aptitude, and creativity.",
-    icon: Calculator,
-    iconBg: "bg-cyan-100",
-    iconColor: "text-cyan-600",
+    image: "/Aptitude.jpeg",
     btnColor: "bg-cyan-600 hover:bg-cyan-700",
     borderColor: "border-cyan-200",
   },
@@ -48,9 +37,7 @@ const SECTION_CONFIG = [
     title: "Personality Assessment",
     description:
       "Evaluate your personality traits, behavioral tendencies, and individual characteristics.",
-    icon: Fingerprint,
-    iconBg: "bg-rose-100",
-    iconColor: "text-rose-600",
+    image: "/PersonalityType.jpeg",
     btnColor: "bg-rose-600 hover:bg-rose-700",
     borderColor: "border-rose-200",
   },
@@ -59,9 +46,7 @@ const SECTION_CONFIG = [
     title: "Career Interest Assessment",
     description:
       "Discover your career interests, professional preferences, and vocational strengths.",
-    icon: Compass,
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
+    image: "/CareerInterest.jpeg",
     btnColor: "bg-amber-600 hover:bg-amber-700",
     borderColor: "border-amber-200",
   },
@@ -70,9 +55,7 @@ const SECTION_CONFIG = [
     title: "Emotional Intelligence Assessment",
     description:
       "Measure your emotional awareness, empathy, self-regulation, and social skills.",
-    icon: Heart,
-    iconBg: "bg-pink-100",
-    iconColor: "text-pink-600",
+    image: "/EmotionalIntelligence.jpeg",
     btnColor: "bg-pink-600 hover:bg-pink-700",
     borderColor: "border-pink-200",
   },
@@ -81,9 +64,7 @@ const SECTION_CONFIG = [
     title: "Learning Style Assessment",
     description:
       "Identify your preferred learning methods, study habits, and cognitive processing style.",
-    icon: BookOpen,
-    iconBg: "bg-emerald-100",
-    iconColor: "text-emerald-600",
+    image: "/LearningStyle.jpeg",
     btnColor: "bg-emerald-600 hover:bg-emerald-700",
     borderColor: "border-emerald-200",
   },
@@ -92,9 +73,7 @@ const SECTION_CONFIG = [
     title: "Behavioral and Social Skills Assessment",
     description:
       "Assess your interpersonal skills, social awareness, and collaborative abilities.",
-    icon: Users,
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
+    image: "/Behavioural.jpeg",
     btnColor: "bg-blue-600 hover:bg-blue-700",
     borderColor: "border-blue-200",
   },
@@ -103,9 +82,7 @@ const SECTION_CONFIG = [
     title: "Stress and Resilience Assessment",
     description:
       "Evaluate your stress management skills, coping mechanisms, and psychological resilience.",
-    icon: Shield,
-    iconBg: "bg-teal-100",
-    iconColor: "text-teal-600",
+    image: "/Stress&Resilience.jpeg",
     btnColor: "bg-teal-600 hover:bg-teal-700",
     borderColor: "border-teal-200",
   },
@@ -113,27 +90,42 @@ const SECTION_CONFIG = [
 
 export default function TestStartPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const serviceCode = searchParams.get("service") || "";
+  const autoStart = searchParams.get("autoStart") === "1";
   const [attempt, setAttempt] = useState<TestAttempt | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [autoStarted, setAutoStarted] = useState(false);
 
   useEffect(() => {
+    if (!serviceCode) {
+      router.replace("/student/dashboard");
+      return;
+    }
+
     const init = async () => {
       try {
-        const res = await testAPI.start();
-        setAttempt(res.data.attempt);
+        // First check for an existing in-progress attempt for this service
+        const inProgressRes = await testAPI.getInProgress(serviceCode).catch(() => ({ data: { attempt: null } }));
+        if (inProgressRes.data.attempt) {
+          setAttempt(inProgressRes.data.attempt);
+        } else {
+          const res = await testAPI.start(serviceCode);
+          setAttempt(res.data.attempt);
+        }
       } catch (err: unknown) {
         const error = err as { response?: { data?: { message?: string } } };
         toast.error(error.response?.data?.message || "Failed to start test");
-        router.push("/student/test");
+        router.push("/student/dashboard");
       } finally {
         setLoading(false);
       }
     };
     init();
-  }, [router]);
+  }, [router, serviceCode]);
 
-  const goToSection = async (type: string) => {
+  const goToSection = useCallback(async (type: string) => {
     if (!attempt) return;
     try {
       if (!document.fullscreenElement) {
@@ -143,8 +135,8 @@ export default function TestStartPage() {
       console.error("Error attempting to enable full-screen mode:", e);
     }
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    router.push(`/student/test/sections/${type}?attemptId=${attempt._id}`);
-  };
+    router.push(`/student/test/sections/${type}?attemptId=${attempt._id}&service=${serviceCode}`);
+  }, [attempt, router, serviceCode]);
 
   const handleCompleteTest = async () => {
     if (!attempt) return;
@@ -161,6 +153,35 @@ export default function TestStartPage() {
     }
   };
 
+  // Build section status from attempt — only show sections in this attempt
+  const sections = useMemo(() => {
+    const attemptTypes = new Set(attempt?.sections?.map((s) => s.testType) || []);
+    const filteredConfigs = SECTION_CONFIG.filter((config) => attemptTypes.has(config.type));
+    return filteredConfigs.map((config, idx) => {
+      const sectionData = attempt?.sections?.find(
+        (s) => s.testType === config.type
+      );
+      const completed = sectionData?.completed || false;
+      const previousCompleted = filteredConfigs.slice(0, idx).every((prev) => {
+        const prevSection = attempt?.sections?.find((s) => s.testType === prev.type);
+        return Boolean(prevSection?.completed);
+      });
+      const isLocked = !completed && !previousCompleted;
+      const isAvailable = !completed && !isLocked;
+
+      return { ...config, completed, isAvailable, isLocked };
+    });
+  }, [attempt]);
+
+  useEffect(() => {
+    if (!autoStart || loading || !attempt || autoStarted) return;
+    const firstAvailable = sections.find((s) => s.isAvailable);
+    if (firstAvailable) {
+      setAutoStarted(true);
+      void goToSection(firstAvailable.type);
+    }
+  }, [autoStart, loading, attempt, autoStarted, sections, goToSection]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -174,38 +195,38 @@ export default function TestStartPage() {
     );
   }
 
-  // Build section status from attempt
-  const sections = SECTION_CONFIG.map((config, idx) => {
-    const sectionData = attempt?.sections?.find(
-      (s) => s.testType === config.type
-    );
-    const completed = sectionData?.completed || false;
-    const isAvailable = !completed;
-    const isLocked = false;
-
-    return { ...config, completed, isAvailable, isLocked };
-  });
-
+  const totalSections = sections.length;
   const completedCount = sections.filter((s) => s.completed).length;
-  const allDone = completedCount === 8;
+  const allDone = totalSections > 0 && completedCount === totalSections;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Back to Dashboard link */}
+      <button
+        onClick={() => router.push("/student/dashboard")}
+        className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors cursor-pointer"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Services
+      </button>
+
       {/* Header banner */}
       <div className="bg-gradient-to-r from-blue-600 to-cyan-500 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold">Career Compass</h1>
+        <h1 className="text-2xl font-bold">Career DNA Profiler</h1>
         <p className="mt-1 text-blue-100">
-          Complete all 8 sections in any order to finish your assessment.
+          Complete sections in order. Finish the current section to unlock the next one.
         </p>
         <div className="mt-3 flex items-center gap-2 text-sm">
           <CheckCircle2 className="w-4 h-4" />
           <span>
-            {completedCount}/8 sections completed
+            {completedCount}/{totalSections} sections completed
           </span>
           <div className="flex-1 ml-3 bg-white/20 rounded-full h-2 overflow-hidden">
             <div
               className="bg-white h-full rounded-full transition-all duration-500"
-              style={{ width: `${(completedCount / 8) * 100}%` }}
+              style={{ width: `${totalSections > 0 ? (completedCount / totalSections) * 100 : 0}%` }}
             />
           </div>
         </div>
@@ -214,11 +235,10 @@ export default function TestStartPage() {
       {/* Section cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {sections.map((section, idx) => {
-          const Icon = section.icon;
           return (
             <div
               key={section.type}
-              className={`bg-white rounded-2xl border shadow-sm transition-all duration-200 ${
+              className={`bg-white rounded-2xl border shadow-sm transition-all duration-200 overflow-hidden ${
                 section.completed
                   ? "border-green-200"
                   : section.isLocked
@@ -226,68 +246,65 @@ export default function TestStartPage() {
                   : `${section.borderColor} hover:shadow-md`
               }`}
             >
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <span className="w-7 h-7 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-bold">
-                      {idx + 1}
-                    </span>
-                    <div
-                      className={`w-11 h-11 rounded-xl ${
-                        section.isLocked ? "bg-gray-100" : section.iconBg
-                      } flex items-center justify-center`}
-                    >
-                      {section.isLocked ? (
-                        <Lock className="w-5 h-5 text-gray-400" />
-                      ) : (
-                        <Icon className={`w-5 h-5 ${section.iconColor}`} />
-                      )}
-                    </div>
-                  </div>
-                  {section.completed && (
-                    <span className="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Done
-                    </span>
-                  )}
-                  {section.isLocked && (
-                    <span className="bg-gray-100 text-gray-400 px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Locked
-                    </span>
-                  )}
+              <div className="flex">
+                {/* Image side */}
+                <div className="relative w-44 shrink-0 self-stretch">
+                  <Image
+                    src={section.image}
+                    alt={section.title}
+                    fill
+                    className="object-cover"
+                  />
+                  {/* Number badge */}
+                  <span className="absolute top-2 left-2 w-6 h-6 rounded-md bg-black/40 text-white flex items-center justify-center text-xs font-bold backdrop-blur-sm">
+                    {idx + 1}
+                  </span>
                 </div>
 
-                <h2
-                  className={`text-base font-bold mb-1 ${
-                    section.isLocked ? "text-gray-400" : "text-gray-900"
-                  }`}
-                >
-                  {section.title}
-                </h2>
-                <p
-                  className={`text-sm leading-relaxed mb-4 ${
-                    section.isLocked ? "text-gray-300" : "text-gray-500"
-                  }`}
-                >
-                  {section.description}
-                </p>
+                {/* Content side */}
+                <div className="flex-1 p-5 flex flex-col">
+                  <div className="flex items-start justify-between mb-2">
+                    <h2 className={`text-sm font-bold leading-snug flex-1 pr-2 ${
+                      section.isLocked ? "text-gray-400" : "text-gray-900"
+                    }`}>
+                      {section.title}
+                    </h2>
+                    {section.completed && (
+                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1 shrink-0">
+                        <CheckCircle2 className="w-3 h-3" /> Done
+                      </span>
+                    )}
+                    {section.isLocked && (
+                      <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 shrink-0">
+                        <Lock className="w-3 h-3" /> Locked
+                      </span>
+                    )}
+                  </div>
 
-                {section.completed ? (
-                  <div className="w-full py-2.5 rounded-xl bg-green-50 border border-green-200 text-green-700 text-center font-semibold text-sm">
-                    ✓ Section Completed
-                  </div>
-                ) : section.isAvailable ? (
-                  <button
-                    onClick={() => goToSection(section.type)}
-                    className={`w-full py-2.5 rounded-xl ${section.btnColor} text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm`}
-                  >
-                    <PlayCircle className="w-4 h-4" />
-                    Start Section
-                  </button>
-                ) : (
-                  <div className="w-full py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-400 text-center font-medium text-sm">
-                    Complete previous section first
-                  </div>
-                )}
+                  <p className={`text-xs leading-relaxed mb-4 flex-1 ${
+                    section.isLocked ? "text-gray-300" : "text-gray-500"
+                  }`}>
+                    {section.description}
+                  </p>
+
+                  {section.completed ? (
+                    <div className="w-full py-2 rounded-xl bg-green-50 border border-green-200 text-green-700 text-center font-semibold text-xs">
+                      ✓ Section Completed
+                    </div>
+                  ) : section.isAvailable ? (
+                    <button
+                      onClick={() => goToSection(section.type)}
+                      className={`w-full py-2 rounded-xl ${section.btnColor} text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm`}
+                    >
+                      <PlayCircle className="w-4 h-4" />
+                      Start Test
+                    </button>
+                  ) : (
+                    <div className="w-full py-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-400 text-center font-medium text-xs">
+                      Complete previous section first
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
