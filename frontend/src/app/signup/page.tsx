@@ -139,7 +139,7 @@ export default function SignupPage() {
               alt="Career DNA Profiler"
               width={200}
               height={48}
-              className="h-12 w-auto"
+              className="h-18 w-auto"
               priority
             />
           </div>
