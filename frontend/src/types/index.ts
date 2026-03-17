@@ -10,6 +10,7 @@ export interface User {
   country?: string;
   state?: string;
   city?: string;
+  serviceLocked?: boolean;
   enrolledServices?: {
     service: string;
     serviceCode: string;

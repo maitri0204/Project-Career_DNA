@@ -568,7 +568,7 @@ export const adminGetStudentDetail = async (
   try {
     const { studentId } = req.params;
     const student = await User.findById(studentId).select(
-      "firstName middleName lastName email mobile country state city enrolledServices createdAt"
+      "firstName middleName lastName email mobile country state city enrolledServices serviceLocked createdAt"
     );
     if (!student) {
       res.status(404).json({ message: "Student not found" });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,11 +24,34 @@ export default function SignupPage() {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [loading, setLoading] = useState(false);
 
+  // Country autocomplete state
+  const [countrySearch, setCountrySearch] = useState("");
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const countryRef = useRef<HTMLDivElement>(null);
+
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const countries = Country.getAllCountries();
   const states = country ? State.getStatesOfCountry(country) : [];
   const cities = country && state ? City.getCitiesOfState(country, state) : [];
+
+  // Filtered countries based on search text
+  const filteredCountries = useMemo(() => {
+    if (!countrySearch.trim()) return countries;
+    const q = countrySearch.toLowerCase();
+    return countries.filter((c) => c.name.toLowerCase().includes(q));
+  }, [countrySearch, countries]);
+
+  // Close country dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (countryRef.current && !countryRef.current.contains(e.target as Node)) {
+        setShowCountryDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -212,13 +235,68 @@ export default function SignupPage() {
               {/* Country */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Country</label>
-                <div className="relative">
-                  <select value={country} onChange={(e) => { setCountry(e.target.value); setState(""); setCity(""); }} className={selectClass}>
-                    <option value="">Select Country</option>
-                    {countries.map((c) => (
-                      <option key={c.isoCode} value={c.isoCode}>{c.flag} {c.name}</option>
-                    ))}
-                  </select>
+                <div className="relative" ref={countryRef}>
+                  <input
+                    type="text"
+                    value={countrySearch}
+                    onChange={(e) => {
+                      setCountrySearch(e.target.value);
+                      setShowCountryDropdown(true);
+                      // Clear selection if user edits text
+                      if (country) {
+                        setCountry("");
+                        setState("");
+                        setCity("");
+                      }
+                    }}
+                    onFocus={() => setShowCountryDropdown(true)}
+                    placeholder="Type to search country..."
+                    className={inputClass}
+                    autoComplete="off"
+                  />
+                  {/* Clear button */}
+                  {countrySearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCountrySearch("");
+                        setCountry("");
+                        setState("");
+                        setCity("");
+                        setShowCountryDropdown(false);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                  {/* Dropdown */}
+                  {showCountryDropdown && (
+                    <div className="absolute z-50 mt-1 w-full max-h-52 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg">
+                      {filteredCountries.length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-gray-400">No countries found</div>
+                      ) : (
+                        filteredCountries.map((c) => (
+                          <button
+                            key={c.isoCode}
+                            type="button"
+                            onClick={() => {
+                              setCountry(c.isoCode);
+                              setCountrySearch(`${c.flag} ${c.name}`);
+                              setState("");
+                              setCity("");
+                              setShowCountryDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors ${country === c.isoCode ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-700"}`}
+                          >
+                            {c.flag} {c.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

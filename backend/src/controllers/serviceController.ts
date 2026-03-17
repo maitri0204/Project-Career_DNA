@@ -47,11 +47,19 @@ export const enrollInService = async (
       return;
     }
 
+    // Block if user already has an enrollment and serviceLocked is true
+    if (user.serviceLocked && user.enrolledServices.length > 0) {
+      res.status(403).json({ message: "Service enrollment is locked. Please contact admin to unlock." });
+      return;
+    }
+
     user.enrolledServices.push({
       service: service._id as any,
       serviceCode: service.code,
       enrolledAt: new Date(),
     });
+    // Lock after first enrollment so student can only have 1 service
+    user.serviceLocked = true;
     await user.save();
 
     res.json({
@@ -81,9 +89,37 @@ export const getMyEnrollments = async (
       return;
     }
 
-    res.json({ enrollments: user.enrolledServices });
+    res.json({ enrollments: user.enrolledServices, serviceLocked: user.serviceLocked });
   } catch (error) {
     console.error("Error getting enrollments:", error);
     res.status(500).json({ message: "Failed to get enrollments" });
+  }
+};
+
+// Admin: Toggle service lock for a student
+export const toggleServiceLock = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { studentId } = req.params;
+    const { locked } = req.body; // boolean
+
+    const user = await User.findById(studentId);
+    if (!user) {
+      res.status(404).json({ message: "Student not found" });
+      return;
+    }
+
+    user.serviceLocked = typeof locked === "boolean" ? locked : !user.serviceLocked;
+    await user.save();
+
+    res.json({
+      message: user.serviceLocked ? "Services locked" : "Services unlocked",
+      serviceLocked: user.serviceLocked,
+    });
+  } catch (error) {
+    console.error("Error toggling service lock:", error);
+    res.status(500).json({ message: "Failed to toggle service lock" });
   }
 };

@@ -533,13 +533,28 @@ export default function TestSectionPage({
                 >
                   <ChevronLeft className="w-4 h-4" /> Previous
                 </button>
-                <button
-                  onClick={goNext}
-                  disabled={currentQuestionIndex === questions.length - 1}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-sm"
-                >
-                  Next <ChevronRight className="w-4 h-4" />
-                </button>
+                {allAnswered ? (
+                  <button
+                    onClick={submitSection}
+                    disabled={submitting}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-green-600 text-white font-semibold text-sm hover:bg-green-700 transition cursor-pointer shadow-sm disabled:opacity-50"
+                  >
+                    {submitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    Submit
+                  </button>
+                ) : (
+                  <button
+                    onClick={goNext}
+                    disabled={currentQuestionIndex === questions.length - 1}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+                  >
+                    Next <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           )}

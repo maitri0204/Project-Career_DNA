@@ -11,6 +11,7 @@ export default function StudentDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [enrolledCodes, setEnrolledCodes] = useState<Set<string>>(new Set());
+  const [serviceLocked, setServiceLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export default function StudentDashboard() {
           )
         );
         setEnrolledCodes(codes);
+        setServiceLocked(enrollmentsRes.data.serviceLocked === true);
       } catch {
         toast.error("Failed to load dashboard data");
       } finally {
@@ -55,6 +57,7 @@ export default function StudentDashboard() {
     try {
       await serviceAPI.enroll(service._id);
       setEnrolledCodes((prev) => new Set([...prev, service.code]));
+      setServiceLocked(true);
       toast.success(`Successfully registered for ${service.name}!`);
 
       // Update user in localStorage
@@ -86,8 +89,13 @@ export default function StudentDashboard() {
     router.push(`/student/test?service=${serviceCode}`);
   };
 
-  const enrolledServices = services.filter((s) => enrolledCodes.has(s.code));
-  const availableServices = services.filter((s) => !enrolledCodes.has(s.code));
+  // Custom sort: GRADE_8_9 first, then GRADE_10, then GRADE_11_12
+  const SERVICE_ORDER: Record<string, number> = { GRADE_8_9: 0, GRADE_10: 1, GRADE_11_12: 2 };
+  const sortByGrade = (a: ServiceItem, b: ServiceItem) =>
+    (SERVICE_ORDER[a.code] ?? 99) - (SERVICE_ORDER[b.code] ?? 99);
+
+  const enrolledServices = services.filter((s) => enrolledCodes.has(s.code)).sort(sortByGrade);
+  const availableServices = services.filter((s) => !enrolledCodes.has(s.code)).sort(sortByGrade);
 
   if (loading) {
     return (
@@ -183,6 +191,7 @@ export default function StudentDashboard() {
                   isRegistered={false}
                   onRegister={handleEnroll}
                   loading={enrollingId === service._id}
+                  blocked={serviceLocked}
                 />
               ))}
             </div>
@@ -201,12 +210,14 @@ function ServiceCard({
   onRegister,
   onViewDetails,
   loading = false,
+  blocked = false,
 }: {
   service: ServiceItem;
   isRegistered?: boolean;
   onRegister?: (service: ServiceItem) => void;
   onViewDetails?: (serviceCode: string) => void;
   loading?: boolean;
+  blocked?: boolean;
 }) {
   return (
     <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden group">
@@ -268,6 +279,13 @@ function ServiceCard({
             >
               View Details
             </button>
+          ) : blocked ? (
+            <div className="flex-1 text-center">
+              <div className="px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium cursor-not-allowed border border-gray-200">
+                🔒 Locked
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1.5">Contact admin to unlock</p>
+            </div>
           ) : (
             <button
               onClick={() => onRegister?.(service)}

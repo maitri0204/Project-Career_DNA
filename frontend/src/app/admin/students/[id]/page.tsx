@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { adminTestAPI } from "@/lib/api";
+import { adminTestAPI, serviceAPI } from "@/lib/api";
 import { TestResult, User } from "@/types";
 
 const SECTION_DISPLAY: Record<string, string> = {
@@ -36,6 +36,7 @@ interface StudentDetail {
     country?: string;
     state?: string;
     city?: string;
+    serviceLocked?: boolean;
     enrolledServices?: Enrollment[];
     createdAt?: string;
   };
@@ -49,6 +50,7 @@ export default function AdminStudentDetailPage() {
 
   const [data, setData] = useState<StudentDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     adminTestAPI
@@ -134,9 +136,47 @@ export default function AdminStudentDetailPage() {
 
       {/* ─── Enrolled Services ─── */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">Enrolled Services</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Click View Details to see all test records for each service.</p>
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Enrolled Services</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Click View Details to see all test records for each service.</p>
+          </div>
+          {/* Service Lock Toggle */}
+          <div className="flex items-center gap-3">
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+              student.serviceLocked
+                ? "bg-red-100 text-red-700"
+                : "bg-green-100 text-green-700"
+            }`}>
+              {student.serviceLocked ? "🔒 Locked" : "🔓 Unlocked"}
+            </span>
+            <button
+              disabled={toggling}
+              onClick={async () => {
+                setToggling(true);
+                try {
+                  const res = await serviceAPI.toggleServiceLock(studentId, !student.serviceLocked);
+                  setData((prev) =>
+                    prev
+                      ? { ...prev, student: { ...prev.student, serviceLocked: res.data.serviceLocked } }
+                      : prev
+                  );
+                  toast.success(res.data.message);
+                } catch {
+                  toast.error("Failed to toggle service lock");
+                } finally {
+                  setToggling(false);
+                }
+              }}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all shadow-sm cursor-pointer disabled:opacity-50 ${
+                student.serviceLocked
+                  ? "bg-green-600 text-white hover:bg-green-700"
+                  : "bg-red-600 text-white hover:bg-red-700"
+              }`}
+            >
+              {toggling ? "..." : student.serviceLocked ? "Unlock Services" : "Lock Services"}
+            </button>
+          </div>
         </div>
         <div className="p-6">
           {student.enrolledServices && student.enrolledServices.length > 0 ? (

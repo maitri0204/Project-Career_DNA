@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import toast from "react-hot-toast";
-import { testAPI } from "@/lib/api";
+import { adminTestAPI } from "@/lib/api";
 import { TestResult } from "@/types";
 import {
   ArrowLeft, Loader2,
@@ -13,7 +12,7 @@ import {
 } from "lucide-react";
 
 /* ================================================================
-   TYPES — match what the backend computes
+   TYPES
    ================================================================ */
 
 interface PartResult {
@@ -38,10 +37,8 @@ interface SectionBreakdown {
   totalScore: number;
   maxScore: number;
   overallPercentage: number;
-  // Personality-specific
   personalityType?: string;
   personalityDimensions?: PersonalityDimension[];
-  // Career / Learning Style
   dominantCode?: string;
 }
 
@@ -79,7 +76,6 @@ const PERSONALITY_TYPES: Record<string, { title: string; description: string }> 
   ENTJ: { title: "The Visionary Director", description: "You are bold, strategic, and driven to lead with a compelling long-term vision." },
 };
 
-/* Student-friendly letter mapping: E→SO, I→RO, S→PO, N→CT, T→LD, F→VD, J→SW, P→FW */
 const FRIENDLY_LETTER: Record<string, string> = { E:"SO", I:"RO", S:"PO", N:"CT", T:"LD", F:"VD", J:"SW", P:"FW" };
 const MBTI_META: Record<string, { label: string; topName: string; bottomName: string; color: string }> = {
   "E/I": { label: "SOCIAL STYLE",       topName: "SOCIAL ORIENTATION",         bottomName: "REFLECTIVE ORIENTATION",     color: "#7a8c6e" },
@@ -100,7 +96,7 @@ const SECTION_CONFIG = [
 ];
 
 /* ================================================================
-   VERTICAL BAR CHART with proper Y-axis
+   VERTICAL BAR CHART
    ================================================================ */
 
 function VerticalBarChart({
@@ -111,58 +107,36 @@ function VerticalBarChart({
   barColor: string;
 }) {
   const gridLines = [0, 25, 50, 75, 100];
-  const CHART_H = 200; // px
+  const CHART_H = 200;
 
   return (
     <div className="w-full overflow-x-auto">
       <div className="flex gap-0 min-w-0" style={{ minWidth: bars.length * 80 }}>
-        {/* Y-axis labels */}
         <div className="flex flex-col-reverse justify-between pr-2 shrink-0" style={{ height: CHART_H + 2 }}>
           {gridLines.map((g) => (
             <span key={g} className="text-[10px] text-gray-400 leading-none">{g}%</span>
           ))}
         </div>
-
-        {/* Chart area */}
         <div className="flex-1 relative">
-          {/* Horizontal grid lines */}
           <div className="absolute inset-0" style={{ height: CHART_H }}>
             {gridLines.map((g) => (
-              <div
-                key={g}
-                className="absolute w-full border-t border-dashed border-gray-200"
-                style={{ bottom: `${g}%` }}
-              />
+              <div key={g} className="absolute w-full border-t border-dashed border-gray-200" style={{ bottom: `${g}%` }} />
             ))}
           </div>
-
-          {/* Bars */}
-          <div
-            className="relative flex items-end justify-around gap-2 sm:gap-4 pb-0"
-            style={{ height: CHART_H }}
-          >
+          <div className="relative flex items-end justify-around gap-2 sm:gap-4 pb-0" style={{ height: CHART_H }}>
             {bars.map((bar, idx) => {
               const h = Math.max(bar.value, 0);
               return (
                 <div key={idx} className="flex flex-col items-center gap-0 flex-1" style={{ maxWidth: 110 }}>
-                  {/* Value label */}
                   <span className="text-xs font-bold text-gray-800 mb-1">{bar.value}%</span>
-                  {/* Bar */}
                   <div className="w-full flex items-end" style={{ height: CHART_H - 20 }}>
-                    <div
-                      className={`w-full rounded-t-md ${barColor} transition-all duration-700`}
-                      style={{ height: `${h}%`, minHeight: h > 0 ? 6 : 0 }}
-                    />
+                    <div className={`w-full rounded-t-md ${barColor} transition-all duration-700`} style={{ height: `${h}%`, minHeight: h > 0 ? 6 : 0 }} />
                   </div>
                 </div>
               );
             })}
           </div>
-
-          {/* X-axis line */}
           <div className="border-t-2 border-gray-300 w-full" />
-
-          {/* X-axis labels */}
           <div className="flex justify-around gap-2 sm:gap-4 mt-2">
             {bars.map((bar, idx) => (
               <div key={idx} className="flex-1 text-center" style={{ maxWidth: 110 }}>
@@ -191,16 +165,9 @@ function SectionCard({
     <div className={`bg-white rounded-2xl border ${borderColor} shadow-sm overflow-hidden`}>
       <div className={`${headerBg} border-b ${borderColor}`}>
         <div className="flex items-center gap-0">
-          {/* Image side */}
           <div className="relative w-28 h-28 shrink-0 overflow-hidden">
-            <Image
-              src={imgSrc}
-              alt={title}
-              fill
-              className="object-cover"
-            />
+            <Image src={imgSrc} alt={title} fill className="object-cover" />
           </div>
-          {/* Text side */}
           <div className="flex-1 px-5 py-4">
             <h2 className="text-lg font-bold text-gray-900">{title}</h2>
             <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
@@ -217,15 +184,13 @@ function SectionCard({
    ================================================================ */
 
 function LearningStyleDisplay({ bd }: { bd: SectionBreakdown }) {
-  // Sort by score descending for primary/secondary
   const sorted = [...bd.parts].sort((a, b) => b.percentage - a.percentage || b.score - a.score);
-  const primary   = sorted[0];
+  const primary = sorted[0];
   const secondary = sorted[1];
   const LS_CODES = ["V","A","R","K","L","S","I","M"];
 
   return (
     <div>
-      {/* Primary & Secondary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center">
           <div className="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-extrabold shadow">
@@ -245,7 +210,6 @@ function LearningStyleDisplay({ bd }: { bd: SectionBreakdown }) {
         </div>
       </div>
 
-      {/* Ranked list */}
       <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
         <Award className="w-4 h-4 text-gray-400" /> All Learning Styles (Ranked)
       </h3>
@@ -280,50 +244,57 @@ function LearningStyleDisplay({ bd }: { bd: SectionBreakdown }) {
    MAIN COMPONENT
    ================================================================ */
 
-export default function ResultDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function AdminResultDetailPage() {
   const router = useRouter();
-  const [resultId, setResultId]   = useState("");
-  const [result,   setResult]     = useState<TestResult | null>(null);
+  const params = useParams();
+  const studentId = params.id as string;
+  const resultId = params.resultId as string;
+
+  const [result, setResult] = useState<TestResult | null>(null);
   const [breakdowns, setBreakdowns] = useState<AllBreakdowns>({});
-  const [loading,  setLoading]    = useState(true);
-
-  // Exit fullscreen when result page opens
-  useEffect(() => {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  }, []);
-
-  useEffect(() => { params.then((p) => setResultId(p.id)); }, [params]);
+  const [studentName, setStudentName] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!resultId) return;
     const load = async () => {
       try {
-        const res = await testAPI.getResult(resultId);
+        // Load result details
+        const res = await adminTestAPI.getResult(resultId);
         setResult(res.data.result);
         setBreakdowns(res.data.breakdowns ?? {});
+
+        // Load student name
+        try {
+          const detailRes = await adminTestAPI.getStudentDetail(studentId);
+          const s = detailRes.data.student;
+          setStudentName(`${s.firstName} ${s.lastName}`);
+        } catch {
+          // Student name is non-critical
+        }
       } catch {
         toast.error("Failed to load result");
-        router.push("/student/dashboard");
+        router.push(`/admin/students/${studentId}`);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [resultId, router]);
+  }, [resultId, studentId, router]);
 
   const completedCount = useMemo(
     () => result?.sections?.filter((s: { completed: boolean }) => s.completed).length ?? 0,
     [result]
   );
 
-  const perInfo  = breakdowns.PERSONALITY?.personalityType ? PERSONALITY_TYPES[breakdowns.PERSONALITY.personalityType] : null;
+  const perInfo = breakdowns.PERSONALITY?.personalityType ? PERSONALITY_TYPES[breakdowns.PERSONALITY.personalityType] : null;
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-          <p className="text-gray-600">Loading your results...</p>
+          <p className="text-gray-600">Loading results...</p>
         </div>
       </div>
     );
@@ -333,10 +304,26 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="max-w-6xl mx-auto px-4 space-y-8 pb-12">
-      {/* Back */}
-      <button onClick={() => router.push("/student/dashboard")} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm font-medium transition cursor-pointer">
-        <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-      </button>
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm text-gray-500">
+        <button onClick={() => router.push("/admin/dashboard")} className="hover:text-blue-600 transition-colors cursor-pointer">
+          Dashboard
+        </button>
+        <span>/</span>
+        <button onClick={() => router.push(`/admin/students/${studentId}`)} className="hover:text-blue-600 transition-colors cursor-pointer">
+          {studentName || "Student"}
+        </button>
+        <span>/</span>
+        {result.serviceCode && (
+          <>
+            <button onClick={() => router.push(`/admin/students/${studentId}/service/${result.serviceCode}`)} className="hover:text-blue-600 transition-colors cursor-pointer">
+              {result.serviceCode === "GRADE_8_9" ? "Grade 8 & 9" : result.serviceCode === "GRADE_10" ? "Grade 10" : result.serviceCode === "GRADE_11_12" ? "Grade 11 & 12" : result.serviceCode}
+            </button>
+            <span>/</span>
+          </>
+        )}
+        <span className="text-gray-900 font-medium">Score Analysis</span>
+      </nav>
 
       {/* ══ HEADER BANNER ══ */}
       <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 rounded-2xl p-8 text-white shadow-lg">
@@ -345,34 +332,29 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
           <h1 className="text-3xl font-extrabold tracking-tight">Assessment Results</h1>
         </div>
         <p className="text-blue-200 text-sm">
-          Completed on {new Date(result.submittedAt).toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" })}
+          {studentName && <>{studentName} &middot; </>}
+          Completed on {new Date(result.submittedAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
         </p>
         <div className="mt-6 flex flex-wrap gap-4">
           <Pill label="Total Score" value={String(result.totalScore)} />
-          <Pill label="Sections"    value={`${completedCount}/8`} />
+          <Pill label="Sections" value={`${completedCount}/8`} />
           {breakdowns.PERSONALITY?.personalityType && <Pill label="Personality Type" value={PERSONALITY_TYPES[breakdowns.PERSONALITY.personalityType]?.title ?? breakdowns.PERSONALITY.personalityType} />}
-          {breakdowns.CAREER_INTEREST?.dominantCode  && <Pill label="RIASEC Code" value={breakdowns.CAREER_INTEREST.dominantCode} />}
-          {breakdowns.LEARNING_STYLE?.dominantCode   && <Pill label="Learn Style" value={breakdowns.LEARNING_STYLE.dominantCode} />}
+          {breakdowns.CAREER_INTEREST?.dominantCode && <Pill label="RIASEC Code" value={breakdowns.CAREER_INTEREST.dominantCode} />}
+          {breakdowns.LEARNING_STYLE?.dominantCode && <Pill label="Learn Style" value={breakdowns.LEARNING_STYLE.dominantCode} />}
         </div>
       </div>
 
       {/* ══ 1. COGNITIVE ══ */}
       {breakdowns.COGNITIVE && (
         <SectionCard title="Cognitive Ability Assessment" subtitle={`Overall: ${breakdowns.COGNITIVE.totalScore}/${breakdowns.COGNITIVE.maxScore} (${breakdowns.COGNITIVE.overallPercentage}%)`} imgSrc="/CognitiveIntelligence.jpeg" borderColor="border-violet-200" headerBg="bg-violet-50">
-          <VerticalBarChart
-            bars={breakdowns.COGNITIVE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
-            barColor="bg-violet-500"
-          />
+          <VerticalBarChart bars={breakdowns.COGNITIVE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))} barColor="bg-violet-500" />
         </SectionCard>
       )}
 
       {/* ══ 2. APTITUDE ══ */}
       {breakdowns.APTITUDE && (
         <SectionCard title="Aptitude Tests" subtitle={`Overall: ${breakdowns.APTITUDE.totalScore}/${breakdowns.APTITUDE.maxScore} (${breakdowns.APTITUDE.overallPercentage}%)`} imgSrc="/Aptitude.jpeg" borderColor="border-cyan-200" headerBg="bg-cyan-50">
-          <VerticalBarChart
-            bars={breakdowns.APTITUDE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
-            barColor="bg-cyan-500"
-          />
+          <VerticalBarChart bars={breakdowns.APTITUDE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))} barColor="bg-cyan-500" />
         </SectionCard>
       )}
 
@@ -380,8 +362,6 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
       {breakdowns.PERSONALITY?.personalityDimensions && breakdowns.PERSONALITY.personalityType && (
         <SectionCard title="Personality Assessment" subtitle={perInfo ? perInfo.title : breakdowns.PERSONALITY.personalityType} imgSrc="/PersonalityType.jpeg" borderColor="border-purple-200" headerBg="bg-purple-50">
           {perInfo && <p className="text-gray-600 text-sm mb-6 leading-relaxed">{perInfo.description}</p>}
-
-          {/* 4-column MBTI grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {breakdowns.PERSONALITY.personalityDimensions.map((dim) => {
               const meta = MBTI_META[dim.pair];
@@ -407,7 +387,6 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
               );
             })}
           </div>
-
           <div className="text-center">
             <div className="inline-flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-xl px-6 py-3">
               <Star className="w-5 h-5 text-purple-500" />
@@ -423,20 +402,14 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
       {/* ══ 4. CAREER INTEREST ══ */}
       {breakdowns.CAREER_INTEREST && (
         <SectionCard title="Career Interest (RIASEC)" subtitle={`Dominant Code: ${breakdowns.CAREER_INTEREST.dominantCode ?? "—"}`} imgSrc="/CareerInterest.jpeg" borderColor="border-amber-200" headerBg="bg-amber-50">
-          <VerticalBarChart
-            bars={breakdowns.CAREER_INTEREST.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore} Yes` }))}
-            barColor="bg-amber-500"
-          />
+          <VerticalBarChart bars={breakdowns.CAREER_INTEREST.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore} Yes` }))} barColor="bg-amber-500" />
         </SectionCard>
       )}
 
       {/* ══ 5. EMOTIONAL INTELLIGENCE ══ */}
       {breakdowns.EMOTIONAL_INTELLIGENCE && (
         <SectionCard title="Emotional Intelligence (EQ)" subtitle={`Total: ${breakdowns.EMOTIONAL_INTELLIGENCE.totalScore}/${breakdowns.EMOTIONAL_INTELLIGENCE.maxScore} (${breakdowns.EMOTIONAL_INTELLIGENCE.overallPercentage}%)`} imgSrc="/EmotionalIntelligence.jpeg" borderColor="border-pink-200" headerBg="bg-pink-50">
-          <VerticalBarChart
-            bars={breakdowns.EMOTIONAL_INTELLIGENCE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
-            barColor="bg-pink-500"
-          />
+          <VerticalBarChart bars={breakdowns.EMOTIONAL_INTELLIGENCE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))} barColor="bg-pink-500" />
         </SectionCard>
       )}
 
@@ -450,20 +423,14 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
       {/* ══ 7. BEHAVIORAL & SOCIAL ══ */}
       {breakdowns.BEHAVIORAL_SOCIAL && (
         <SectionCard title="Behavioral & Social Skills" subtitle={`Total: ${breakdowns.BEHAVIORAL_SOCIAL.totalScore}/${breakdowns.BEHAVIORAL_SOCIAL.maxScore} (${breakdowns.BEHAVIORAL_SOCIAL.overallPercentage}%)`} imgSrc="/Behavioural.jpeg" borderColor="border-blue-200" headerBg="bg-blue-50">
-          <VerticalBarChart
-            bars={breakdowns.BEHAVIORAL_SOCIAL.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
-            barColor="bg-blue-500"
-          />
+          <VerticalBarChart bars={breakdowns.BEHAVIORAL_SOCIAL.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))} barColor="bg-blue-500" />
         </SectionCard>
       )}
 
       {/* ══ 8. STRESS & RESILIENCE ══ */}
       {breakdowns.STRESS_RESILIENCE && (
         <SectionCard title="Stress & Resilience Assessment" subtitle={`Total: ${breakdowns.STRESS_RESILIENCE.totalScore}/${breakdowns.STRESS_RESILIENCE.maxScore} (${breakdowns.STRESS_RESILIENCE.overallPercentage}%)`} imgSrc="/Stress&Resilience.jpeg" borderColor="border-teal-200" headerBg="bg-teal-50">
-          <VerticalBarChart
-            bars={breakdowns.STRESS_RESILIENCE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))}
-            barColor="bg-teal-500"
-          />
+          <VerticalBarChart bars={breakdowns.STRESS_RESILIENCE.parts.map(p => ({ label: p.partName, value: p.percentage, subLabel: `${p.score}/${p.maxScore}` }))} barColor="bg-teal-500" />
         </SectionCard>
       )}
 
@@ -518,9 +485,9 @@ export default function ResultDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Back link */}
       <div className="text-center pb-6">
-        <Link href="/student/dashboard" className="text-blue-600 hover:underline text-sm font-medium">
-          ← Back to Dashboard
-        </Link>
+        <button onClick={() => router.back()} className="text-blue-600 hover:underline text-sm font-medium cursor-pointer">
+          ← Back
+        </button>
       </div>
     </div>
   );

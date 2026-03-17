@@ -47,7 +47,7 @@ export default function TestInstructionsPage() {
   }, [serviceCode, router]);
 
   const handleStartTest = () => {
-    router.push(`/student/test/start?service=${serviceCode}&autoStart=1`);
+    router.push(`/student/test/start?service=${serviceCode}`);
   };
 
   return (

@@ -125,6 +125,8 @@ export const serviceAPI = {
   getAll: () => api.get("/services"),
   enroll: (serviceId: string) => api.post(`/services/${serviceId}/enroll`),
   getMyEnrollments: () => api.get("/services/my-enrollments"),
+  toggleServiceLock: (studentId: string, locked: boolean) =>
+    api.put(`/services/admin/${studentId}/toggle-lock`, { locked }),
 };
 
 // ─── Admin Test API ───

@@ -6,6 +6,7 @@ import {
   getAllServices,
   enrollInService,
   getMyEnrollments,
+  toggleServiceLock,
 } from "../controllers/serviceController";
 
 const router = Router();
@@ -27,6 +28,14 @@ router.get(
   authenticate,
   authorize(USER_ROLE.STUDENT),
   getMyEnrollments
+);
+
+// Admin — toggle service lock for a student
+router.put(
+  "/admin/:studentId/toggle-lock",
+  authenticate,
+  authorize(USER_ROLE.ADMIN),
+  toggleServiceLock
 );
 
 export default router;

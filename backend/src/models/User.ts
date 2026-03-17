@@ -19,6 +19,7 @@ export interface IUser extends Document {
   role: USER_ROLE;
   isVerified: boolean;
   isActive: boolean;
+  serviceLocked: boolean;
   otp?: string;
   otpExpires?: Date;
   enrolledServices: IEnrollment[];
@@ -62,6 +63,10 @@ const userSchema = new Schema<IUser>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    serviceLocked: {
+      type: Boolean,
+      default: false,
     },
     otp: {
       type: String,

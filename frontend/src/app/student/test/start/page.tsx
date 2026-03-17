@@ -92,11 +92,9 @@ export default function TestStartPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const serviceCode = searchParams.get("service") || "";
-  const autoStart = searchParams.get("autoStart") === "1";
   const [attempt, setAttempt] = useState<TestAttempt | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [autoStarted, setAutoStarted] = useState(false);
 
   useEffect(() => {
     if (!serviceCode) {
@@ -172,15 +170,6 @@ export default function TestStartPage() {
       return { ...config, completed, isAvailable, isLocked };
     });
   }, [attempt]);
-
-  useEffect(() => {
-    if (!autoStart || loading || !attempt || autoStarted) return;
-    const firstAvailable = sections.find((s) => s.isAvailable);
-    if (firstAvailable) {
-      setAutoStarted(true);
-      void goToSection(firstAvailable.type);
-    }
-  }, [autoStart, loading, attempt, autoStarted, sections, goToSection]);
 
   if (loading) {
     return (
