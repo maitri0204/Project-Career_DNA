@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import toast from "react-hot-toast";
 import { authAPI } from "@/lib/api";
 
@@ -150,9 +151,14 @@ function LoginPageContent() {
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-2xl flex items-center justify-center shadow-xl">
-              <span className="text-white font-bold text-3xl">N</span>
-            </div>
+            <Image
+              src="/career-dna-logo.png"
+              alt="Career DNA Profiler"
+              width={200}
+              height={48}
+              className="h-12 w-auto"
+              priority
+            />
           </div>
           <h2 className="text-4xl font-bold text-gray-900 mb-2">
             {step === "signup" ? "Create Account" : "Welcome"}
