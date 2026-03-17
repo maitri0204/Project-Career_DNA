@@ -18,14 +18,14 @@ export const sendOTPEmail = async (
   const transporter = createTransporter();
   const subject =
     type === "signup"
-      ? "Career Compass - Verify Your Account"
-      : "Career Compass - Login OTP";
+      ? "Career DNA Profiler - Verify Your Account"
+      : "Career DNA Profiler - Login OTP";
 
   const html = `
     <div style="font-family: 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
       <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 40px;">
         <h2 style="text-align: center; color: #1a1d2e; margin-bottom: 8px;">
-          ${type === "signup" ? "Welcome to Career Compass!" : "Login Verification"}
+          ${type === "signup" ? "Welcome to Career DNA Profiler!" : "Login Verification"}
         </h2>
         <p style="text-align: center; color: #334155; margin-bottom: 24px;">
           Hi ${name}, here is your OTP code:
@@ -43,7 +43,7 @@ export const sendOTPEmail = async (
   `;
 
   await transporter.sendMail({
-    from: `"Career Compass" <${process.env.EMAIL_USER}>`,
+    from: `"Career DNA Profiler" <${process.env.EMAIL_USER}>`,
     to: email,
     subject,
     html,

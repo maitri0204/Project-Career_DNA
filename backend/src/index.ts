@@ -34,7 +34,7 @@ app.use("/api/services", serviceRoutes);
 
 // Health check route
 app.get("/api/health", (_req: Request, res: Response) => {
-  res.status(200).json({ status: "ok", message: "Career Compass Backend is running" });
+  res.status(200).json({ status: "ok", message: "Career DNA Profiler Backend is running" });
 });
 
 // Error handling middleware
