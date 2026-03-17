@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="frontend/public/banner.png" alt="Career DNA Profiler" width="100%" />
+  <img src="frontend/public/banner.jpg" alt="Career DNA Profiler" width="100%" />
 </div>
 
 <h1 align="center">Project — Career DNA Profiler</h1>
