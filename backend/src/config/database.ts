@@ -3,13 +3,17 @@ import User from "../models/User";
 import { USER_ROLE } from "../types/roles";
 
 const seedAdmin = async (): Promise<void> => {
-  const adminEmail = "maitripatel2608@gmail.com";
-  const existing = await User.findOne({ email: adminEmail });
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail) {
+    console.log("⚠️  ADMIN_EMAIL not set in environment variables. Skipping admin seed.");
+    return;
+  }
+  const existing = await User.findOne({ email: adminEmail.toLowerCase() });
   if (!existing) {
     await User.create({
-      firstName: "Maitri",
-      lastName: "Patel",
-      email: adminEmail,
+      firstName: process.env.ADMIN_FIRST_NAME || "Admin",
+      lastName: process.env.ADMIN_LAST_NAME || "User",
+      email: adminEmail.toLowerCase(),
       role: USER_ROLE.ADMIN,
       isVerified: true,
       isActive: true,
@@ -27,7 +31,7 @@ const connectDB = async (): Promise<void> => {
     }
 
     const conn = await mongoose.connect(mongoURI, {
-      dbName: "Numeric_Assessment",
+      dbName: process.env.DB_NAME || "career_dna_profiler",
     });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     console.log(`Database Name: ${conn.connection.name}`);

@@ -16,7 +16,8 @@
     "seed:learning-style": "ts-node src/scripts/seedLearningStyleQuestions.ts",
     "seed:behavioral-social": "ts-node src/scripts/seedBehavioralSocialQuestions.ts",
     "seed:stress-resilience": "ts-node src/scripts/seedStressResilienceQuestions.ts",
-    "seed:all": "npm run seed:cognitive && npm run seed:aptitude && npm run seed:personality && npm run seed:career-interest && npm run seed:emotional-intelligence && npm run seed:learning-style && npm run seed:behavioral-social && npm run seed:stress-resilience"
+    "seed:services": "ts-node src/scripts/seedServices.ts",
+    "seed:all": "npm run seed:services && npm run seed:cognitive && npm run seed:aptitude && npm run seed:personality && npm run seed:career-interest && npm run seed:emotional-intelligence && npm run seed:learning-style && npm run seed:behavioral-social && npm run seed:stress-resilience"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +27,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.1",
+    "express-rate-limit": "^8.3.2",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.9.5",
     "nodemailer": "^8.0.2"
@@ -34,6 +37,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/express-rate-limit": "^5.1.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.10.5",
     "@types/nodemailer": "^7.0.11",

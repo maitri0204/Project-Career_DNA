@@ -19,7 +19,7 @@ const router = Router();
 
 // Student routes
 router.post("/start", authenticate, authorize(USER_ROLE.STUDENT), startTest);
-router.get("/in-progress", authenticate, getInProgressAttempt);
+router.get("/in-progress", authenticate, authorize(USER_ROLE.STUDENT), getInProgressAttempt);
 router.get("/attempt/:id", authenticate, getAttempt);
 router.get("/attempt/:id/questions/:testType", authenticate, getQuestionsForSection);
 router.put(
@@ -45,7 +45,7 @@ router.get(
   adminGetStudentDetail
 );
 
-// Shared
+// Shared — BUG-005 fix: authorization check added inside getResult controller
 router.get("/results/:id", authenticate, getResult);
 
 export default router;

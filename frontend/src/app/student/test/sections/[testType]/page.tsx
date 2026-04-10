@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { testAPI } from "@/lib/api";
 import { Question, TestAttempt } from "@/types";
@@ -35,7 +35,20 @@ const SECTION_NAMES: Record<string, string> = {
 // Only these sections have a timer — 1 minute per question
 const TIMED_SECTIONS = new Set(["COGNITIVE", "APTITUDE"]);
 
+// BUG-021 fix: Wrap in Suspense boundary for useSearchParams
 export default function TestSectionPage({
+  params,
+}: {
+  params: Promise<{ testType: string }>;
+}) {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>}>
+      <TestSectionContent params={params} />
+    </Suspense>
+  );
+}
+
+function TestSectionContent({
   params,
 }: {
   params: Promise<{ testType: string }>;
@@ -183,8 +196,18 @@ export default function TestSectionPage({
         const timed = TIMED_SECTIONS.has(testType);
         setIsTimed(timed);
         if (timed) {
-          // Timer = number of questions in minutes (1 min per question)
-          setTimeLeft(qs.length * 60);
+          // BUG-011 fix: Persist timer start time in localStorage to prevent refresh exploit
+          const timerKey = `timer_start_${testType}_${attemptId}`;
+          const totalSeconds = qs.length * 60;
+          const savedStart = localStorage.getItem(timerKey);
+          if (savedStart) {
+            const elapsed = Math.floor((Date.now() - parseInt(savedStart, 10)) / 1000);
+            const remaining = Math.max(0, totalSeconds - elapsed);
+            setTimeLeft(remaining);
+          } else {
+            localStorage.setItem(timerKey, Date.now().toString());
+            setTimeLeft(totalSeconds);
+          }
         }
 
         // Group by part
@@ -280,8 +303,9 @@ export default function TestSectionPage({
 
       if (timerRef.current) clearInterval(timerRef.current);
 
-      // Clear auto-save
+      // Clear auto-save and timer persistence
       localStorage.removeItem(`autosave_${testType}_${attemptId}`);
+      localStorage.removeItem(`timer_start_${testType}_${attemptId}`);
 
       toast.success(`${SECTION_NAMES[testType] || testType} submitted!`);
       router.push(`/student/test/start?service=${serviceCode}`);

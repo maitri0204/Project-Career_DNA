@@ -51,6 +51,11 @@ export default function Navbar() {
 
   const isActive = (path: string) => pathname === path;
 
+  // UX-002 fix: Hide navbar entirely during active test sections
+  if (pathname.includes("/test/sections")) {
+    return null;
+  }
+
   return (
     <nav className="bg-white sticky top-0 z-50 shadow-lg border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

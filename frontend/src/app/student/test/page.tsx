@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User } from "@/types";
 
@@ -27,7 +27,16 @@ const instructions = [
   "In case of any technical issue, take a screenshot of the issue and share it on hello@admitra.io with your name and details of the issue.",
 ];
 
+// BUG-021 fix: Wrap in Suspense boundary for useSearchParams
 export default function TestInstructionsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="spinner" /></div>}>
+      <TestInstructionsContent />
+    </Suspense>
+  );
+}
+
+function TestInstructionsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const serviceCode = searchParams.get("service") || "";

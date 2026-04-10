@@ -73,7 +73,10 @@ function computeBreakdown(testType: string, answers: Record<string, string>, que
       if (!ans || !q.correctAnswer) continue;
       const dimA = q.correctAnswer;
       const dimB = DIMENSION_OPPOSITE[dimA];
-      if (!dimB) continue;
+      if (!dimB) {
+        console.warn(`[PERSONALITY] Unknown dimension "${dimA}" in question ${q._id} — skipping`);
+        continue;
+      }
       if (ans === "A") cnt[dimA]++;
       else if (ans === "B") cnt[dimB]++;
     }
@@ -143,9 +146,13 @@ function computeBreakdown(testType: string, answers: Record<string, string>, que
   return { parts, totalScore, maxScore, overallPercentage: maxScore ? Math.round((totalScore/maxScore)*100) : 0, dominantCode };
 }
 
-/* ── Random pick helper ── */
+/* ── Random pick helper (Fisher-Yates shuffle for uniform distribution) ── */
 function pickRandom<T>(arr: T[], count: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
   return shuffled.slice(0, Math.min(count, arr.length));
 }
 
@@ -532,25 +539,53 @@ export const getResult = async (
       return;
     }
 
-    // Compute per-section breakdowns using only the selected questions
+    // BUG-005 fix: Authorization check — only the owner or admin can view
+    const requestingUserId = req.user!._id.toString();
+    const resultStudentId = typeof result.student === "object" && result.student._id
+      ? result.student._id.toString()
+      : result.student.toString();
+    if (requestingUserId !== resultStudentId && req.user!.role !== "ADMIN") {
+      res.status(403).json({ message: "You do not have permission to view this result." });
+      return;
+    }
+
+    // PERF-001 fix: Batch all question IDs and fetch in a single query
+    const allQuestionIds: mongoose.Types.ObjectId[] = [];
+    for (const section of result.sections) {
+      if (!section.completed) continue;
+      const qIds = (section.questionIds || []).map((id: unknown) => id as mongoose.Types.ObjectId);
+      allQuestionIds.push(...qIds);
+    }
+
+    // Single batch query for all questions
+    const allQuestions = allQuestionIds.length > 0
+      ? await Question.find({ _id: { $in: allQuestionIds } })
+          .sort({ partNumber: 1, questionNumber: 1 })
+          .lean() as unknown as QDoc[]
+      : [];
+
+    // Create a map for fast lookup
+    const questionMap = new Map<string, QDoc>();
+    for (const q of allQuestions) {
+      questionMap.set(q._id.toString(), q);
+    }
+
+    // Compute per-section breakdowns using the pre-fetched questions
     const breakdowns: Record<string, Breakdown> = {};
     for (const section of result.sections) {
       if (!section.completed) continue;
       const answers = extractAnswers(section.answers);
-      // Use only the pre-selected questionIds for this section
-      const qIds = (section.questionIds || []).map((id: unknown) => id);
-      let questions: QDoc[];
-      if (qIds.length > 0) {
-        questions = await Question.find({ _id: { $in: qIds } })
-          .sort({ partNumber: 1, questionNumber: 1 })
-          .lean() as unknown as QDoc[];
-      } else {
+      const qIds = (section.questionIds || []).map((id: unknown) => (id as mongoose.Types.ObjectId).toString());
+      const questions = qIds.map(id => questionMap.get(id)).filter(Boolean) as QDoc[];
+      if (questions.length === 0) {
         // Fallback for old attempts without questionIds
-        questions = await Question.find({ testType: section.testType })
+        const fallbackQuestions = await Question.find({ testType: section.testType })
           .sort({ partNumber: 1, questionNumber: 1 })
           .lean() as unknown as QDoc[];
+        breakdowns[section.testType] = computeBreakdown(section.testType, answers, fallbackQuestions);
+      } else {
+        breakdowns[section.testType] = computeBreakdown(section.testType, answers, questions);
       }
-      breakdowns[section.testType] = computeBreakdown(section.testType, answers, questions);
     }
 
     res.json({ result, breakdowns });

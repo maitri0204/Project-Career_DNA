@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
 import { questionAPI } from "@/lib/api";
 import { Question } from "@/types";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const TEST_TYPES = [
   { value: "COGNITIVE", label: "Cognitive Ability", color: "#7c3aed" },
@@ -44,6 +45,9 @@ export default function AdminQuestionsPage() {
   ]);
   const [addCorrectAnswer, setAddCorrectAnswer] = useState("A");
   const [adding, setAdding] = useState(false);
+
+  // BUG-025: Confirm dialog state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
 
   const currentTypeConfig = TEST_TYPES.find((t) => t.value === testType)!;
 
@@ -108,10 +112,10 @@ export default function AdminQuestionsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this question? This cannot be undone.")) return;
     try {
       await questionAPI.remove(id);
       toast.success("Question deleted");
+      setDeleteConfirm({ open: false, id: "" });
       fetchQuestions();
     } catch {
       toast.error("Failed to delete question");
@@ -369,7 +373,7 @@ export default function AdminQuestionsPage() {
                         </svg>
                       </button>
                       <button
-                        onClick={() => handleDelete(q._id)}
+                        onClick={() => setDeleteConfirm({ open: true, id: q._id })}
                         className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition"
                         title="Delete"
                       >
@@ -649,6 +653,17 @@ export default function AdminQuestionsPage() {
           </div>
         </div>
       )}
+      {/* BUG-025: Custom confirm dialog */}
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        title="Delete Question"
+        message="Are you sure you want to delete this question? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={() => handleDelete(deleteConfirm.id)}
+        onCancel={() => setDeleteConfirm({ open: false, id: "" })}
+      />
     </div>
   );
 }

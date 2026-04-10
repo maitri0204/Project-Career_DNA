@@ -15,6 +15,10 @@ export const generateToken = (user: IUser): string => {
     throw new Error("JWT_SECRET not defined in environment variables");
   }
 
+  if (secret.length < 32) {
+    throw new Error("JWT_SECRET must be at least 32 characters for security");
+  }
+
   const payload: TokenPayload = {
     id: user._id.toString(),
     email: user.email,

@@ -55,7 +55,7 @@ export default function ResultsListPage() {
             No Results Yet
           </h3>
           <p className="text-gray-500 text-sm mb-4">
-            Complete all 8 sections of the assessment to see your results.
+            Complete all sections of the assessment to see your results.
           </p>
           <button
             onClick={() => router.push("/student/test")}
@@ -99,7 +99,7 @@ export default function ResultsListPage() {
                     {result.totalScore}
                   </p>
                   <p className="text-xs text-gray-400">
-                    {completedSections}/8 sections
+                    {completedSections}/{result.sections?.length || 0} sections
                   </p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />

@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken, TokenPayload } from "../utils/jwt";
 import User from "../models/User";
+import { IUser } from "../models/User";
 
 export interface AuthRequest extends Request {
-  user?: any;
+  user?: IUser;
 }
 
 export const authenticate = async (
@@ -17,9 +18,8 @@ export const authenticate = async (
     let token: string | undefined;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
-    } else if (typeof req.query.token === "string" && req.query.token) {
-      token = req.query.token;
     }
+    // BUG-009 fix: Removed query parameter token support — tokens should only come via Authorization header
 
     if (!token) {
       res.status(401).json({ message: "Access denied. No token provided." });

@@ -21,8 +21,9 @@ export default function SignupPage() {
   const [country, setCountry] = useState("");
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
-  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Country autocomplete state
   const [countrySearch, setCountrySearch] = useState("");
@@ -66,6 +67,13 @@ export default function SignupPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // UX-003: Resend OTP cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
@@ -92,6 +100,7 @@ export default function SignupPage() {
       });
       toast.success(res.data.message || "Account created! Check your email for OTP.");
       setStep("otp");
+      setResendCooldown(60);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Signup failed");
     } finally {
@@ -105,7 +114,7 @@ export default function SignupPage() {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    if (value && index < 3) otpRefs.current[index + 1]?.focus();
+    if (value && index < 5) otpRefs.current[index + 1]?.focus();
   };
 
   const handleOTPKeyDown = (index: number, e: React.KeyboardEvent) => {
@@ -117,8 +126,8 @@ export default function SignupPage() {
   const handleOTPSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const otpValue = otp.join("");
-    if (otpValue.length !== 4) {
-      toast.error("Please enter the complete OTP");
+    if (otpValue.length !== 6) {
+      toast.error("Please enter the complete 6-digit OTP");
       return;
     }
     setLoading(true);
@@ -353,11 +362,11 @@ export default function SignupPage() {
                 </div>
                 <h3 className="text-lg font-bold text-gray-900">Check Your Email</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  We sent a 4-digit code to <span className="font-medium text-gray-700">{email}</span>
+                  We sent a 6-digit code to <span className="font-medium text-gray-700">{email}</span>
                 </p>
               </div>
 
-              <div className="flex justify-center gap-3">
+              <div className="flex justify-center gap-2">
                 {otp.map((digit, idx) => (
                   <input
                     key={idx}
@@ -368,7 +377,7 @@ export default function SignupPage() {
                     value={digit}
                     onChange={(e) => handleOTPChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOTPKeyDown(idx, e)}
-                    className="w-14 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                    className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
                   />
                 ))}
               </div>
@@ -378,7 +387,38 @@ export default function SignupPage() {
                 {loading ? "Verifying..." : "Verify & Get Started"}
               </button>
 
-              <button type="button" onClick={() => { setStep("form"); setOtp(["", "", "", ""]); }}
+              {/* UX-003: Resend OTP with cooldown */}
+              <div className="text-center">
+                {resendCooldown > 0 ? (
+                  <p className="text-sm text-gray-500">Resend OTP in <span className="font-semibold text-blue-600">{resendCooldown}s</span></p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await authAPI.signup({
+                          firstName: firstName.trim(), middleName: middleName.trim(),
+                          lastName: lastName.trim(), email: email.trim().toLowerCase(),
+                          mobile: mobile.trim(),
+                          country: country ? Country.getCountryByCode(country)?.name || country : "",
+                          state: state ? State.getStateByCodeAndCountry(state, country)?.name || state : "",
+                          city: city.trim(),
+                        });
+                        toast.success("OTP resent to your email");
+                        setOtp(["", "", "", "", "", ""]);
+                        setResendCooldown(60);
+                      } catch {
+                        toast.error("Failed to resend OTP");
+                      }
+                    }}
+                    className="text-sm text-blue-600 hover:underline font-medium"
+                  >
+                    Resend OTP
+                  </button>
+                )}
+              </div>
+
+              <button type="button" onClick={() => { setStep("form"); setOtp(["", "", "", "", "", ""]); }}
                 className="w-full text-center text-sm text-blue-600 hover:underline font-medium">
                 ← Back to Sign Up
               </button>

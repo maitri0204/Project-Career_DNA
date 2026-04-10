@@ -22,6 +22,7 @@ export interface IUser extends Document {
   serviceLocked: boolean;
   otp?: string;
   otpExpires?: Date;
+  otpAttempts: number;
   enrolledServices: IEnrollment[];
   createdAt?: Date;
   updatedAt?: Date;
@@ -75,6 +76,10 @@ const userSchema = new Schema<IUser>(
     otpExpires: {
       type: Date,
       default: undefined,
+    },
+    otpAttempts: {
+      type: Number,
+      default: 0,
     },
     enrolledServices: {
       type: [enrollmentSchema],

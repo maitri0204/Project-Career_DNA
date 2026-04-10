@@ -35,18 +35,18 @@ const services = [
 async function seed() {
   try {
     console.log("🔗 Connecting to MongoDB...");
-    await mongoose.connect(MONGO_URI, { dbName: "Numeric_Assessment" });
+    await mongoose.connect(MONGO_URI, { dbName: process.env.DB_NAME || "career_dna_profiler" });
     console.log("✅ Connected!\n");
 
-    const deleted = await Service.deleteMany({});
-    console.log(`🗑️  Deleted ${deleted.deletedCount} old services`);
-
-    const result = await Service.insertMany(services);
-    console.log(`✅ Inserted ${result.length} services\n`);
-
-    result.forEach((s) => {
-      console.log(`   ${s.code}: "${s.name}" — ${s.sections.length} sections`);
-    });
+    // BUG-023 fix: Use upsert instead of deleteMany to prevent data loss
+    for (const service of services) {
+      await Service.findOneAndUpdate(
+        { code: service.code },
+        { $set: service },
+        { upsert: true, new: true }
+      );
+      console.log(`✅ Upserted service: ${service.code} — "${service.name}" — ${service.sections.length} sections`);
+    }
 
     await mongoose.disconnect();
     console.log("\n✅ Done!");

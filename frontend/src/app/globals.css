@@ -205,7 +205,5 @@ html { scroll-behavior: smooth; }
 }
 
 /* ─── Readability ─── */
-.text-gray-400 { color: #374151; }
-.text-gray-500 { color: #1f2937; }
-.text-gray-600 { color: #111827; }
+/* Removed custom .text-gray-* overrides (UX-004 fix) — use Tailwind classes directly */
 

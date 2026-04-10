@@ -9,11 +9,34 @@ const api = axios.create({
   },
 });
 
-// Attach token to every request
+// BUG-019 fix: Check if JWT is expired before making requests
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    // Add 10-second buffer to avoid edge-case failures
+    return payload.exp * 1000 < Date.now() - 10000;
+  } catch {
+    return true;
+  }
+}
+
+function clearAuthAndRedirect() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/signup")) {
+    window.location.href = "/login";
+  }
+}
+
+// Attach token to every request (with expiry check)
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("token");
     if (token) {
+      if (isTokenExpired(token)) {
+        clearAuthAndRedirect();
+        return Promise.reject(new axios.Cancel("Token expired"));
+      }
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
@@ -25,10 +48,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        window.location.href = "/login";
+      if (typeof window !== "undefined") {
+        clearAuthAndRedirect();
       }
     }
     return Promise.reject(error);

@@ -70,4 +70,15 @@ const testResultSchema = new Schema<ITestResult>(
   { timestamps: true }
 );
 
+// PERF-003 fix: Add compound indexes for frequently queried fields
+testResultSchema.index({ student: 1, status: 1 });
+testResultSchema.index({ student: 1, serviceCode: 1 });
+testResultSchema.index({ status: 1, submittedAt: -1 });
+
+// BUG-012 fix: Partial unique index to prevent race condition creating duplicate IN_PROGRESS attempts
+testResultSchema.index(
+  { student: 1, serviceCode: 1, status: 1 },
+  { unique: true, partialFilterExpression: { status: "IN_PROGRESS" } }
+);
+
 export default mongoose.model<ITestResult>("TestResult", testResultSchema);

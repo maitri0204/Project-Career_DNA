@@ -1,6 +1,14 @@
 import { Request, Response } from "express";
 import Question from "../models/Question";
 
+// CQ-002 fix: Define VALID_TYPES once at module level
+const VALID_TYPES = ["COGNITIVE", "APTITUDE", "PERSONALITY", "CAREER_INTEREST", "EMOTIONAL_INTELLIGENCE", "LEARNING_STYLE", "BEHAVIORAL_SOCIAL", "STRESS_RESILIENCE"];
+
+// BUG-024 fix: Sanitize text input — strip HTML tags to prevent XSS
+function sanitizeText(input: string): string {
+  return input.replace(/<[^>]*>/g, "").trim();
+}
+
 export const getQuestionsByTestType = async (
   req: Request,
   res: Response
@@ -9,7 +17,6 @@ export const getQuestionsByTestType = async (
     const testType = req.params.testType as string;
     const type = testType.toUpperCase();
 
-    const VALID_TYPES = ["COGNITIVE", "APTITUDE", "PERSONALITY", "CAREER_INTEREST", "EMOTIONAL_INTELLIGENCE", "LEARNING_STYLE", "BEHAVIORAL_SOCIAL", "STRESS_RESILIENCE"];
     if (!VALID_TYPES.includes(type)) {
       res
         .status(400)
@@ -36,7 +43,6 @@ export const getQuestionsByTestTypeAdmin = async (
     const testType = req.params.testType as string;
     const type = testType.toUpperCase();
 
-    const VALID_TYPES = ["COGNITIVE", "APTITUDE", "PERSONALITY", "CAREER_INTEREST", "EMOTIONAL_INTELLIGENCE", "LEARNING_STYLE", "BEHAVIORAL_SOCIAL", "STRESS_RESILIENCE"];
     if (!VALID_TYPES.includes(type)) {
       res.status(400).json({ message: "Invalid test type." });
       return;
@@ -68,7 +74,6 @@ export const addQuestion = async (
     }
 
     const type = testType.toUpperCase();
-    const VALID_TYPES = ["COGNITIVE", "APTITUDE", "PERSONALITY", "CAREER_INTEREST", "EMOTIONAL_INTELLIGENCE", "LEARNING_STYLE", "BEHAVIORAL_SOCIAL", "STRESS_RESILIENCE"];
     if (!VALID_TYPES.includes(type)) {
       res.status(400).json({ message: "Invalid test type." });
       return;
@@ -82,11 +87,14 @@ export const addQuestion = async (
     const question = await Question.create({
       testType: type,
       partNumber,
-      partName,
+      partName: sanitizeText(partName),
       questionNumber,
-      questionText,
-      passage: passage || undefined,
-      options,
+      questionText: sanitizeText(questionText),
+      passage: passage ? sanitizeText(passage) : undefined,
+      options: options.map((o: { label: string; text: string }) => ({
+        label: o.label,
+        text: sanitizeText(o.text),
+      })),
       correctAnswer,
     });
 
@@ -107,10 +115,14 @@ export const updateQuestion = async (
     const { questionText, options, correctAnswer, passage } = req.body;
 
     const updateData: Record<string, unknown> = {};
-    if (questionText !== undefined) updateData.questionText = questionText;
-    if (options !== undefined) updateData.options = options;
+    if (questionText !== undefined) updateData.questionText = sanitizeText(questionText);
+    if (options !== undefined)
+      updateData.options = options.map((o: { label: string; text: string }) => ({
+        label: o.label,
+        text: sanitizeText(o.text),
+      }));
     if (correctAnswer !== undefined) updateData.correctAnswer = correctAnswer;
-    if (passage !== undefined) updateData.passage = passage;
+    if (passage !== undefined) updateData.passage = sanitizeText(passage);
 
     const question = await Question.findByIdAndUpdate(id, updateData, { new: true });
     if (!question) {

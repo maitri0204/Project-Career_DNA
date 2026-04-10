@@ -12,9 +12,7 @@ import {
 
 const router = Router();
 
-// Student: get questions (without correct answers)
-router.get("/:testType", authenticate, getQuestionsByTestType);
-
+// BUG-016 fix: Admin routes MUST come before parameterized /:testType route
 // Admin: get questions (with correct answers)
 router.get(
   "/admin/:testType",
@@ -46,5 +44,8 @@ router.delete(
   authorize(USER_ROLE.ADMIN),
   deleteQuestion
 );
+
+// Student: get questions (without correct answers) — placed AFTER /admin routes
+router.get("/:testType", authenticate, getQuestionsByTestType);
 
 export default router;

@@ -28,34 +28,34 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
     const user = new User({
       firstName: firstName.trim(),
-      middleName: middleName?.trim() || "",
+      middleName: middleName?.trim() || undefined,
       lastName: lastName.trim(),
       email: email.toLowerCase().trim(),
-      mobile: mobile?.trim() || "",
-      country: country?.trim() || "",
-      state: state?.trim() || "",
-      city: city?.trim() || "",
+      mobile: mobile?.trim() || undefined,
+      country: country?.trim() || undefined,
+      state: state?.trim() || undefined,
+      city: city?.trim() || undefined,
       role: USER_ROLE.STUDENT,
       otp: hashedOtp,
       otpExpires: getOTPExpiration(10),
+      otpAttempts: 0,
       isVerified: false,
       isActive: true,
     });
 
     await user.save();
 
-    console.log(`🔑 [SIGNUP OTP] Email: ${email} | OTP: ${otp}`);
-
     try {
       await sendOTPEmail(email, firstName, otp, "signup");
     } catch (emailError) {
       console.error("Email sending failed:", emailError);
+      res.status(500).json({ message: "Failed to send OTP email. Please try again later." });
+      return;
     }
 
     res.status(201).json({
       message: "Signup successful. Please verify your email with the OTP sent.",
       email: user.email,
-      otp: process.env.NODE_ENV === "development" ? otp : undefined,
     });
   } catch (error: any) {
     console.error("Signup error:", error);
@@ -97,7 +97,19 @@ export const verifySignupOTP = async (
       return;
     }
 
+    // BUG-008 fix: Check OTP attempt limit
+    if (user.otpAttempts >= 5) {
+      user.otp = undefined;
+      user.otpExpires = undefined;
+      user.otpAttempts = 0;
+      await user.save();
+      res.status(429).json({ message: "Too many failed attempts. Please request a new OTP." });
+      return;
+    }
+
     if (!compareOTP(otp, user.otp)) {
+      user.otpAttempts = (user.otpAttempts || 0) + 1;
+      await user.save();
       res.status(400).json({ message: "Invalid OTP." });
       return;
     }
@@ -105,6 +117,7 @@ export const verifySignupOTP = async (
     user.isVerified = true;
     user.otp = undefined;
     user.otpExpires = undefined;
+    user.otpAttempts = 0;
     await user.save();
 
     const token = generateToken(user);
@@ -159,20 +172,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     user.otp = hashedOtp;
     user.otpExpires = getOTPExpiration(10);
+    user.otpAttempts = 0;
     await user.save();
-
-    console.log(`🔑 [LOGIN OTP] Email: ${email} | OTP: ${otp}`);
 
     try {
       await sendOTPEmail(email, user.firstName, otp, "login");
     } catch (emailError) {
       console.error("Email sending failed:", emailError);
+      res.status(500).json({ message: "Failed to send OTP email. Please try again later." });
+      return;
     }
 
     res.status(200).json({
       message: "OTP sent to your email.",
       email: user.email,
-      otp: process.env.NODE_ENV === "development" ? otp : undefined,
     });
   } catch (error: any) {
     console.error("Login error:", error);
@@ -209,13 +222,26 @@ export const verifyOTP = async (
       return;
     }
 
+    // BUG-008 fix: Check OTP attempt limit
+    if (user.otpAttempts >= 5) {
+      user.otp = undefined;
+      user.otpExpires = undefined;
+      user.otpAttempts = 0;
+      await user.save();
+      res.status(429).json({ message: "Too many failed attempts. Please request a new OTP." });
+      return;
+    }
+
     if (!compareOTP(otp, user.otp)) {
+      user.otpAttempts = (user.otpAttempts || 0) + 1;
+      await user.save();
       res.status(400).json({ message: "Invalid OTP." });
       return;
     }
 
     user.otp = undefined;
     user.otpExpires = undefined;
+    user.otpAttempts = 0;
     await user.save();
 
     const token = generateToken(user);
@@ -246,6 +272,10 @@ export const getProfile = async (
 ): Promise<void> => {
   try {
     const user = req.user;
+    if (!user) {
+      res.status(401).json({ message: "Not authenticated." });
+      return;
+    }
     res.status(200).json({
       user: {
         id: user._id,

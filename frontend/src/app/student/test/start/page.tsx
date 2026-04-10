@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { testAPI } from "@/lib/api";
 import { TestAttempt } from "@/types";
@@ -88,7 +88,16 @@ const SECTION_CONFIG = [
   },
 ];
 
+// BUG-021 fix: Wrap in Suspense boundary for useSearchParams
 export default function TestStartPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>}>
+      <TestStartContent />
+    </Suspense>
+  );
+}
+
+function TestStartContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const serviceCode = searchParams.get("service") || "";

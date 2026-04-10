@@ -23,8 +23,9 @@ function LoginPageContent() {
     searchParams.get("signup") === "true" ? "signup" : "email"
   );
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Signup fields
   const [firstName, setFirstName] = useState("");
@@ -33,6 +34,13 @@ function LoginPageContent() {
   const [isSignupOtp, setIsSignupOtp] = useState(false);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // UX-003: Resend OTP cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -59,6 +67,7 @@ function LoginPageContent() {
       toast.success(res.data.message || "OTP sent to your email");
       setIsSignupOtp(false);
       setStep("otp");
+      setResendCooldown(60);
     } catch (error: any) {
       const msg = error.response?.data?.message || "Something went wrong";
       if (msg.toLowerCase().includes("not found")) {
@@ -89,6 +98,7 @@ function LoginPageContent() {
       toast.success(res.data.message || "Signup successful. Check your email for OTP.");
       setIsSignupOtp(true);
       setStep("otp");
+      setResendCooldown(60);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Signup failed");
     } finally {
@@ -102,7 +112,7 @@ function LoginPageContent() {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    if (value && index < 3) otpRefs.current[index + 1]?.focus();
+    if (value && index < 5) otpRefs.current[index + 1]?.focus();
   };
 
   const handleOTPKeyDown = (index: number, e: React.KeyboardEvent) => {
@@ -114,8 +124,8 @@ function LoginPageContent() {
   const handleOTPSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const otpValue = otp.join("");
-    if (otpValue.length !== 4) {
-      toast.error("Please enter the complete OTP");
+    if (otpValue.length !== 6) {
+      toast.error("Please enter the complete 6-digit OTP");
       return;
     }
     setLoading(true);
@@ -321,11 +331,11 @@ function LoginPageContent() {
                 </div>
                 <h3 className="text-lg font-bold text-gray-900">Check Your Email</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  We sent a 4-digit code to <span className="font-medium text-gray-700">{email}</span>
+                  We sent a 6-digit code to <span className="font-medium text-gray-700">{email}</span>
                 </p>
               </div>
 
-              <div className="flex justify-center gap-3">
+              <div className="flex justify-center gap-2">
                 {otp.map((digit, idx) => (
                   <input
                     key={idx}
@@ -336,7 +346,7 @@ function LoginPageContent() {
                     value={digit}
                     onChange={(e) => handleOTPChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOTPKeyDown(idx, e)}
-                    className="w-14 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                    className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
                   />
                 ))}
               </div>
@@ -349,9 +359,37 @@ function LoginPageContent() {
                 {loading ? "Verifying..." : "Verify & Login"}
               </button>
 
+              {/* UX-003: Resend OTP with cooldown */}
+              <div className="text-center">
+                {resendCooldown > 0 ? (
+                  <p className="text-sm text-gray-500">Resend OTP in <span className="font-semibold text-blue-600">{resendCooldown}s</span></p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        if (isSignupOtp) {
+                          await authAPI.signup({ firstName, middleName, lastName, email: email.trim().toLowerCase() });
+                        } else {
+                          await authAPI.login({ email: email.trim().toLowerCase() });
+                        }
+                        toast.success("OTP resent to your email");
+                        setOtp(["", "", "", "", "", ""]);
+                        setResendCooldown(60);
+                      } catch {
+                        toast.error("Failed to resend OTP");
+                      }
+                    }}
+                    className="text-sm text-blue-600 hover:underline font-medium"
+                  >
+                    Resend OTP
+                  </button>
+                )}
+              </div>
+
               <button
                 type="button"
-                onClick={() => { setStep("email"); setOtp(["", "", "", ""]); }}
+                onClick={() => { setStep("email"); setOtp(["", "", "", "", "", ""]); }}
                 className="w-full text-center text-sm text-blue-600 hover:underline font-medium"
               >
                 ← Back to Email

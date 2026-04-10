@@ -1,10 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 
+/**
+ * BUG-010 / UX-001 fix:
+ * - Removed destructive document.body.innerHTML = "" behavior
+ * - Removed devtools size detection (unreliable, harms accessibility)
+ * - Only blocks keyboard shortcuts during active test sections, not globally
+ * - Right-click is no longer blocked globally
+ */
 export default function DevToolsBlocker() {
+  const pathname = usePathname();
+  const isTestSection = pathname?.includes("/test/sections") ?? false;
+
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !isTestSection) return;
 
     const blockKeys = (e: KeyboardEvent) => {
       const key = e.key;
@@ -19,29 +30,12 @@ export default function DevToolsBlocker() {
       }
     };
 
-    const blockContext = (e: MouseEvent) => { e.preventDefault(); return false; };
-
-    let devtoolsInterval: ReturnType<typeof setInterval> | null = null;
-    const detectDevTools = () => {
-      const threshold = 160;
-      const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-      const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-      if (widthThreshold || heightThreshold) {
-        document.body.innerHTML = "";
-        window.location.replace("/login");
-      }
-    };
-    devtoolsInterval = setInterval(detectDevTools, 1000);
-
     document.addEventListener("keydown", blockKeys, true);
-    document.addEventListener("contextmenu", blockContext, true);
 
     return () => {
       document.removeEventListener("keydown", blockKeys, true);
-      document.removeEventListener("contextmenu", blockContext, true);
-      if (devtoolsInterval) clearInterval(devtoolsInterval);
     };
-  }, []);
+  }, [isTestSection]);
 
   return null;
 }
