@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import toast from "react-hot-toast";
 import { authAPI } from "@/lib/api";
 
-type AuthStep = "email" | "otp" | "signup";
+type AuthStep = "email" | "otp";
 
 export default function LoginPage() {
   return (
@@ -18,20 +18,11 @@ export default function LoginPage() {
 
 function LoginPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [step, setStep] = useState<AuthStep>(
-    searchParams.get("signup") === "true" ? "signup" : "email"
-  );
+  const [step, setStep] = useState<AuthStep>("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-
-  // Signup fields
-  const [firstName, setFirstName] = useState("");
-  const [middleName, setMiddleName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [isSignupOtp, setIsSignupOtp] = useState(false);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -65,42 +56,16 @@ function LoginPageContent() {
     try {
       const res = await authAPI.login({ email: email.trim().toLowerCase() });
       toast.success(res.data.message || "OTP sent to your email");
-      setIsSignupOtp(false);
       setStep("otp");
       setResendCooldown(60);
     } catch (error: any) {
       const msg = error.response?.data?.message || "Something went wrong";
       if (msg.toLowerCase().includes("not found")) {
-        toast.error("Account not found. Please sign up first.");
-        setStep("signup");
+        toast.error("Account not found. Redirecting to sign up...");
+        setTimeout(() => router.push("/signup"), 1200);
       } else {
         toast.error(msg);
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignup = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-      toast.error("Please fill all required fields");
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await authAPI.signup({
-        firstName: firstName.trim(),
-        middleName: middleName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim().toLowerCase(),
-      });
-      toast.success(res.data.message || "Signup successful. Check your email for OTP.");
-      setIsSignupOtp(true);
-      setStep("otp");
-      setResendCooldown(60);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Signup failed");
     } finally {
       setLoading(false);
     }
@@ -130,8 +95,7 @@ function LoginPageContent() {
     }
     setLoading(true);
     try {
-      const apiCall = isSignupOtp ? authAPI.verifySignupOTP : authAPI.verifyOTP;
-      const res = await apiCall({ email: email.trim().toLowerCase(), otp: otpValue });
+      const res = await authAPI.verifyOTP({ email: email.trim().toLowerCase(), otp: otpValue });
       const { token, user } = res.data;
 
       localStorage.setItem("token", token);
@@ -171,7 +135,7 @@ function LoginPageContent() {
             />
           </div>
           <h2 className="text-4xl font-bold text-gray-900 mb-2">
-            {step === "signup" ? "Create Account" : "Welcome"}
+            Welcome
           </h2>
           <p className="text-gray-600">Career DNA Profiler Platform</p>
         </div>
@@ -243,83 +207,6 @@ function LoginPageContent() {
             </form>
           )}
 
-          {/* ── STEP: SIGNUP ── */}
-          {step === "signup" && (
-            <form onSubmit={handleSignup} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">First Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="John"
-                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Middle Name</label>
-                  <input
-                    type="text"
-                    value={middleName}
-                    onChange={(e) => setMiddleName(e.target.value)}
-                    placeholder="M."
-                    className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Doe"
-                  className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-400"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed btn-glow"
-              >
-                {loading ? "Sending OTP..." : "Sign Up & Get OTP"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStep("email")}
-                className="w-full text-center text-sm text-blue-600 hover:underline font-medium"
-              >
-                ← Back to Login
-              </button>
-            </form>
-          )}
-
           {/* ── STEP: OTP ── */}
           {step === "otp" && (
             <form onSubmit={handleOTPSubmit} className="space-y-6">
@@ -368,11 +255,7 @@ function LoginPageContent() {
                     type="button"
                     onClick={async () => {
                       try {
-                        if (isSignupOtp) {
-                          await authAPI.signup({ firstName, middleName, lastName, email: email.trim().toLowerCase() });
-                        } else {
-                          await authAPI.login({ email: email.trim().toLowerCase() });
-                        }
+                        await authAPI.login({ email: email.trim().toLowerCase() });
                         toast.success("OTP resent to your email");
                         setOtp(["", "", "", "", "", ""]);
                         setResendCooldown(60);
