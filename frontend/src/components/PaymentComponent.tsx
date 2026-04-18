@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import axios from "axios";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ interface OrderResult {
   final_amount: number;
   razorpay_key: string;
   free?: boolean;
+  gst_amount?: number;
 }
 
 declare global {
@@ -36,6 +37,8 @@ declare global {
     Razorpay: any;
   }
 }
+
+const GST_RATE = 0.18;
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -51,9 +54,9 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({
 }) => {
   const [couponCode, setCouponCode] = useState("");
   const [discount, setDiscount] = useState(0);
-  const [finalAmount, setFinalAmount] = useState(amount);
   const [couponApplied, setCouponApplied] = useState(false);
   const [couponMessage, setCouponMessage] = useState("");
+  const [gstEnabled, setGstEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -61,6 +64,24 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({
     baseURL: apiBaseUrl,
     headers: { Authorization: `Bearer ${authToken}` },
   }), [apiBaseUrl, authToken]);
+
+  // ─── Fetch GST setting from backend ────────────────────────────────────
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const { data } = await api.get(`/app-config/${appId}`);
+        setGstEnabled(data.gst_enabled || false);
+      } catch {
+        // default: no GST
+      }
+    };
+    fetchConfig();
+  }, [api, appId]);
+
+  // ─── Computed amounts ──────────────────────────────────────────────────
+  const afterDiscount = useMemo(() => Math.max(amount - discount, 0), [amount, discount]);
+  const gstAmount = useMemo(() => gstEnabled ? Math.round(afterDiscount * GST_RATE) : 0, [afterDiscount, gstEnabled]);
+  const finalAmount = useMemo(() => afterDiscount + gstAmount, [afterDiscount, gstAmount]);
 
   // ─── Apply Coupon ───────────────────────────────────────────────────────
   const applyCoupon = useCallback(async () => {
@@ -83,14 +104,12 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({
 
       if (data.valid) {
         setDiscount(data.discount || 0);
-        setFinalAmount(data.final_amount || amount);
         setCouponApplied(true);
         setCouponMessage(data.message);
       } else {
         setError(data.message);
         setCouponApplied(false);
         setDiscount(0);
-        setFinalAmount(amount);
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || "Failed to validate coupon";
@@ -99,14 +118,13 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [couponCode, userId, appId, amount]);
+  }, [couponCode, userId, appId, amount, api]);
 
   // ─── Remove Coupon ──────────────────────────────────────────────────────
   const removeCoupon = () => {
     setCouponCode("");
     setCouponApplied(false);
     setDiscount(0);
-    setFinalAmount(amount);
     setCouponMessage("");
     setError("");
   };
@@ -244,6 +262,18 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({
           <div className="flex justify-between text-sm text-green-600">
             <span>Discount</span>
             <span>- ₹{discount}</span>
+          </div>
+        )}
+        {couponApplied && (
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>Subtotal</span>
+            <span>₹{afterDiscount}</span>
+          </div>
+        )}
+        {gstEnabled && (
+          <div className="flex justify-between text-sm text-orange-600">
+            <span>GST (18%)</span>
+            <span>+ ₹{gstAmount}</span>
           </div>
         )}
         <div className="border-t pt-2 flex justify-between font-semibold text-gray-800">

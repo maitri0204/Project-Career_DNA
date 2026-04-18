@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 
 const PAYMENT_API_URL = process.env.NEXT_PUBLIC_PAYMENT_API_URL || "http://localhost:5050/api";
 const APP_ID = "career_dna";
+
+const getAuthHeaders = () => {
+  const token = typeof window !== "undefined"
+    ? localStorage.getItem("token") || sessionStorage.getItem("token") || ""
+    : "";
+  return { Authorization: `Bearer ${token}` };
+};
 
 interface Coupon {
   _id: string;
@@ -28,6 +35,10 @@ export default function CouponsPage() {
   const [editingAmount, setEditingAmount] = useState(false);
   const [newAmount, setNewAmount] = useState("");
   const [savingAmount, setSavingAmount] = useState(false);
+
+  // GST toggle from backend
+  const [gstEnabled, setGstEnabled] = useState(false);
+  const [togglingGst, setTogglingGst] = useState(false);
 
   // Form state
   const [code, setCode] = useState("");
@@ -56,8 +67,9 @@ export default function CouponsPage() {
     }
     discountAmt = Math.min(discountAmt, testAmount);
     const finalAmt = Math.max(testAmount - discountAmt, 0);
-    return { discountAmt, finalAmt };
-  }, [value, discountType, testAmount]);
+    const gstAmt = gstEnabled ? Math.round(finalAmt * 0.18) : 0;
+    return { discountAmt, finalAmt, gstAmt, totalWithGst: finalAmt + gstAmt };
+  }, [value, discountType, testAmount, gstEnabled]);
 
   // Validation error
   const validationError = useMemo(() => {
@@ -74,9 +86,10 @@ export default function CouponsPage() {
 
   const fetchAppConfig = async () => {
     try {
-      const res = await axios.get(`${PAYMENT_API_URL}/admin/app-config/${APP_ID}`);
+      const res = await axios.get(`${PAYMENT_API_URL}/admin/app-config/${APP_ID}`, { headers: getAuthHeaders() });
       setTestAmount(res.data.test_amount);
       setNewAmount(String(res.data.test_amount));
+      setGstEnabled(res.data.gst_enabled || false);
     } catch {
       // default stays 499
     }
@@ -84,7 +97,7 @@ export default function CouponsPage() {
 
   const fetchCoupons = async () => {
     try {
-      const res = await axios.get(`${PAYMENT_API_URL}/admin/coupons`);
+      const res = await axios.get(`${PAYMENT_API_URL}/admin/coupons`, { headers: getAuthHeaders() });
       const all: Coupon[] = res.data;
       setCoupons(all.filter((c) => c.app_id === APP_ID));
     } catch {
@@ -108,7 +121,7 @@ export default function CouponsPage() {
     }
     setSavingAmount(true);
     try {
-      const res = await axios.put(`${PAYMENT_API_URL}/admin/app-config/${APP_ID}`, { test_amount: amt });
+      const res = await axios.put(`${PAYMENT_API_URL}/admin/app-config/${APP_ID}`, { test_amount: amt }, { headers: getAuthHeaders() });
       setTestAmount(res.data.test_amount);
       setEditingAmount(false);
       toast.success("Test amount updated!");
@@ -137,7 +150,7 @@ export default function CouponsPage() {
         value: Number(value),
         expiry_date: `${expiryDate}T${expiryTime || "23:59"}:00`,
         app_id: APP_ID,
-      });
+      }, { headers: getAuthHeaders() });
       toast.success("Coupon created!");
       setCode("");
       setValue("");
@@ -181,7 +194,7 @@ export default function CouponsPage() {
         discount_type: editDiscountType,
         value: Number(editValue),
         expiry_date: `${editExpiryDate}T${editExpiryTime || "23:59"}:00`,
-      });
+      }, { headers: getAuthHeaders() });
       setCoupons((prev) => prev.map((c) => c._id === editingCoupon._id ? res.data : c));
       setEditingCoupon(null);
       toast.success("Coupon updated!");
@@ -195,7 +208,7 @@ export default function CouponsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this coupon?")) return;
     try {
-      await axios.delete(`${PAYMENT_API_URL}/admin/coupons/${id}`);
+      await axios.delete(`${PAYMENT_API_URL}/admin/coupons/${id}`, { headers: getAuthHeaders() });
       toast.success("Coupon deleted");
       setCoupons((prev) => prev.filter((c) => c._id !== id));
     } catch {
@@ -278,6 +291,47 @@ export default function CouponsPage() {
         </div>
       </div>
 
+      {/* GST Setting */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">GST (18%)</h2>
+            <p className="text-sm text-gray-500 mt-0.5">When enabled, 18% GST is added to all payments after discount</p>
+          </div>
+          <button
+            onClick={async () => {
+              setTogglingGst(true);
+              try {
+                const res = await axios.put(`${PAYMENT_API_URL}/admin/app-config/${APP_ID}`, { gst_enabled: !gstEnabled }, { headers: getAuthHeaders() });
+                setGstEnabled(res.data.gst_enabled);
+                toast.success(res.data.gst_enabled ? "GST enabled" : "GST disabled");
+              } catch {
+                toast.error("Failed to update GST setting");
+              } finally {
+                setTogglingGst(false);
+              }
+            }}
+            disabled={togglingGst}
+            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+              gstEnabled ? "bg-orange-500" : "bg-gray-300"
+            } ${togglingGst ? "opacity-50" : ""}`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                gstEnabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+        {gstEnabled && (
+          <div className="mt-3 bg-orange-50 border border-orange-200 rounded-xl px-4 py-2">
+            <p className="text-sm text-orange-700">
+              Base: <strong>₹{testAmount}</strong> → With GST: <strong>₹{testAmount + Math.round(testAmount * 0.18)}</strong>
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Create Form */}
       {showForm && (
         <form onSubmit={handleCreate} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
@@ -348,10 +402,19 @@ export default function CouponsPage() {
           {discountPreview && !validationError && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-blue-800 mb-1">Discount Preview</p>
-              <div className="flex items-center gap-6 text-sm">
+              <div className="flex flex-wrap items-center gap-6 text-sm">
                 <span className="text-gray-600">Test Amount: <strong>₹{testAmount}</strong></span>
                 <span className="text-green-600">Discount: <strong>- ₹{discountPreview.discountAmt}</strong></span>
-                <span className="text-blue-700">Student Pays: <strong className="text-lg">₹{discountPreview.finalAmt}</strong></span>
+                <span className="text-blue-700">After Discount: <strong>₹{discountPreview.finalAmt}</strong></span>
+                {gstEnabled && (
+                  <>
+                    <span className="text-orange-600">GST (18%): <strong>+ ₹{discountPreview.gstAmt}</strong></span>
+                    <span className="text-blue-700">Student Pays: <strong className="text-lg">₹{discountPreview.totalWithGst}</strong></span>
+                  </>
+                )}
+                {!gstEnabled && (
+                  <span className="text-blue-700">Student Pays: <strong className="text-lg">₹{discountPreview.finalAmt}</strong></span>
+                )}
               </div>
             </div>
           )}
@@ -382,7 +445,8 @@ export default function CouponsPage() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-6 py-3 text-left font-semibold text-gray-600">Code</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-600">Discount</th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-600">Student Pays</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-600">After Discount</th>
+                {gstEnabled && <th className="px-6 py-3 text-left font-semibold text-gray-600">With GST (18%)</th>}
                 <th className="px-6 py-3 text-left font-semibold text-gray-600">Valid Until</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-600">Status</th>
                 <th className="px-6 py-3 text-right font-semibold text-gray-600">Actions</th>
@@ -395,6 +459,7 @@ export default function CouponsPage() {
                   ? Math.round((testAmount * coupon.value) / 100)
                   : Math.min(coupon.value, testAmount);
                 const studentPays = Math.max(testAmount - disc, 0);
+                const gstOnStudentPays = Math.round(studentPays * 0.18);
                 return (
                   <tr key={coupon._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
@@ -408,6 +473,7 @@ export default function CouponsPage() {
                         : `₹${coupon.value}`}
                     </td>
                     <td className="px-6 py-4 font-semibold text-blue-700">₹{studentPays}</td>
+                    {gstEnabled && <td className="px-6 py-4 font-semibold text-orange-700">₹{studentPays + gstOnStudentPays}</td>}
                     <td className="px-6 py-4 text-gray-700">
                       {new Date(coupon.expiry_date).toLocaleDateString("en-IN", {
                         day: "numeric",
