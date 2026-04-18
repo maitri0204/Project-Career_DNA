@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User } from "@/types";
+import toast from "react-hot-toast";
 
 const instructions = [
   "The assessment is designed to evaluate your analytical ability, numerical reasoning, verbal reasoning, and behavioural preferences.",
@@ -45,9 +46,12 @@ function TestInstructionsContent() {
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
-      try { setUser(JSON.parse(userStr)); } catch { /* noop */ }
+      try {
+        const parsed = JSON.parse(userStr);
+        setUser(parsed);
+      } catch {}
     }
-  }, []);
+  }, [serviceCode]);
 
   useEffect(() => {
     if (!serviceCode) {
