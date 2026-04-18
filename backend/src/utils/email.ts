@@ -1,13 +1,22 @@
 import nodemailer from "nodemailer";
+import he from "he";
 
-const createTransporter = () =>
-  nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+// Singleton transporter — reuse SMTP connections
+let transporter: nodemailer.Transporter | null = null;
+const getTransporter = () => {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  }
+  return transporter;
+};
+
+const safe = (str: string): string => he.encode(str);
 
 export const sendOTPEmail = async (
   email: string,
@@ -15,7 +24,8 @@ export const sendOTPEmail = async (
   otp: string,
   type: "signup" | "login"
 ): Promise<void> => {
-  const transporter = createTransporter();
+  const t = getTransporter();
+  const safeName = safe(name);
   const subject =
     type === "signup"
       ? "Career DNA Profiler - Verify Your Account"
@@ -28,7 +38,7 @@ export const sendOTPEmail = async (
           ${type === "signup" ? "Welcome to Career DNA Profiler!" : "Login Verification"}
         </h2>
         <p style="text-align: center; color: #334155; margin-bottom: 24px;">
-          Hi ${name}, here is your OTP code:
+          Hi ${safeName}, here is your OTP code:
         </p>
         <div style="text-align: center; margin: 24px 0;">
           <span style="display: inline-block; border: 2px solid #334155; color: #1a1d2e; font-size: 32px; font-weight: bold; letter-spacing: 12px; padding: 16px 32px; border-radius: 8px;">
@@ -42,7 +52,7 @@ export const sendOTPEmail = async (
     </div>
   `;
 
-  await transporter.sendMail({
+  await t.sendMail({
     from: `"Career DNA Profiler" <${process.env.EMAIL_USER}>`,
     to: email,
     subject,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import axios from "axios";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -57,9 +57,10 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const api = axios.create({
+  const api = useMemo(() => axios.create({
     baseURL: apiBaseUrl,
-  });
+    headers: { Authorization: `Bearer ${authToken}` },
+  }), [apiBaseUrl, authToken]);
 
   // ─── Apply Coupon ───────────────────────────────────────────────────────
   const applyCoupon = useCallback(async () => {

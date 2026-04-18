@@ -15,7 +15,7 @@ const router = Router();
 // BUG-003 fix: Rate limiting on auth endpoints
 const authLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // 100 requests per window per IP
+  max: 20, // 20 requests per window per IP
   message: { message: "Too many requests. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false,

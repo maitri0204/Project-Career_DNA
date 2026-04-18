@@ -28,5 +28,12 @@ export const validateSignup = (
     return;
   }
 
+  // Validate mobile if provided
+  const { mobile } = req.body;
+  if (mobile && !/^[0-9]{10,15}$/.test(mobile.trim())) {
+    res.status(400).json({ message: "Invalid mobile number format." });
+    return;
+  }
+
   next();
 };
