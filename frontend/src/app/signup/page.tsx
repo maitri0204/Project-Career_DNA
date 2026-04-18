@@ -24,6 +24,7 @@ export default function SignupPage() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Country autocomplete state
   const [countrySearch, setCountrySearch] = useState("");
@@ -82,6 +83,10 @@ export default function SignupPage() {
     }
     if (mobile && !/^\+?[0-9\s\-()]{7,15}$/.test(mobile.trim())) {
       toast.error("Please enter a valid mobile number");
+      return;
+    }
+    if (!agreedToTerms) {
+      toast.error("Please accept the Terms & Conditions and Privacy Policy");
       return;
     }
     setLoading(true);
