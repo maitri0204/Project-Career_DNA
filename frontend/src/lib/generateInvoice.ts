@@ -7,7 +7,7 @@ const LOGO_IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAggAAACuCAYAAABT
 // ─── Assessment name mapping ────────────────────────────────────────────────
 const ASSESSMENT_NAMES: Record<string, string> = {
   litmus: "Litmus Test",
-  johari_window: "Cognitive Lens for Emotional Awareness & Reflection Test",
+  johari_window: "CLEAR Test",
   career_dna: "Career DNA Profiler",
   career_compass: "Career Compass",
   metacognition_test: "Thinking & Expression Skills Test",
