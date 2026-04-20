@@ -58,6 +58,8 @@ api.interceptors.response.use(
 
 // ─── Auth API ───
 export const authAPI = {
+  getCaptcha: () => api.get("/auth/captcha"),
+
   signup: (data: {
     firstName: string;
     middleName?: string;
@@ -67,12 +69,14 @@ export const authAPI = {
     country?: string;
     state?: string;
     city?: string;
+    captchaToken?: string;
+    captchaAnswer?: string;
   }) => api.post("/auth/signup", data),
 
   verifySignupOTP: (data: { email: string; otp: string }) =>
     api.post("/auth/verify-signup-otp", data),
 
-  login: (data: { email: string }) =>
+  login: (data: { email: string; captchaToken?: string; captchaAnswer?: string }) =>
     api.post("/auth/login", data),
 
   verifyOTP: (data: { email: string; otp: string }) =>

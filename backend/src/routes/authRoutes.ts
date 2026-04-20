@@ -9,8 +9,15 @@ import {
 } from "../controllers/authController";
 import { authenticate } from "../middleware/auth";
 import { validateSignup } from "../middleware/validate";
+import { generateCaptchaChallenge } from "../utils/captcha";
 
 const router = Router();
+
+// Captcha endpoint
+router.get("/captcha", (_req, res) => {
+  const { token, question } = generateCaptchaChallenge();
+  res.json({ success: true, data: { token, question } });
+});
 
 // BUG-003 fix: Rate limiting on auth endpoints
 const authLimiter = rateLimit({

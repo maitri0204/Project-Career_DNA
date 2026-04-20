@@ -23,6 +23,9 @@ function LoginPageContent() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [captchaQuestion, setCaptchaQuestion] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -46,15 +49,34 @@ function LoginPageContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fetchCaptcha = async () => {
+    try {
+      const res = await authAPI.getCaptcha();
+      setCaptchaToken(res.data.data.token);
+      setCaptchaQuestion(res.data.data.question);
+      setCaptchaAnswer("");
+    } catch {
+      toast.error("Failed to load captcha");
+    }
+  };
+
+  useEffect(() => {
+    if (step === "email") fetchCaptcha();
+  }, [step]);
+
   const handleEmailSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!email.trim()) {
       toast.error("Please enter your email");
       return;
     }
+    if (!captchaToken || !captchaAnswer) {
+      toast.error("Please solve the captcha");
+      return;
+    }
     setLoading(true);
     try {
-      const res = await authAPI.login({ email: email.trim().toLowerCase() });
+      const res = await authAPI.login({ email: email.trim().toLowerCase(), captchaToken, captchaAnswer });
       toast.success(res.data.message || "OTP sent to your email");
       setStep("otp");
       setResendCooldown(60);
@@ -66,6 +88,7 @@ function LoginPageContent() {
       } else {
         toast.error(msg);
       }
+      fetchCaptcha();
     } finally {
       setLoading(false);
     }
@@ -166,6 +189,29 @@ function LoginPageContent() {
                     className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-400"
                     placeholder="you@example.com"
                   />
+                </div>
+              </div>
+
+              {/* Captcha Section */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Solve to verify</label>
+                <div className="space-y-3">
+                  {captchaQuestion && (
+                    <div className="bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 border-2 border-gray-400 rounded-xl p-4">
+                      <div className="flex items-center justify-center">
+                        <span className="text-2xl font-bold text-gray-800 select-none tracking-wide" style={{ fontFamily: "monospace" }}>{captchaQuestion}</span>
+                      </div>
+                    </div>
+                  )}
+                  {captchaQuestion && (
+                    <input type="number" required value={captchaAnswer} onChange={(e) => setCaptchaAnswer(e.target.value)} className="block w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-400 text-center font-semibold" placeholder="Your answer" />
+                  )}
+                  {captchaQuestion && (
+                    <button type="button" onClick={() => { fetchCaptcha(); toast.success("Captcha refreshed!"); }} className="w-full py-2 px-4 bg-white border-2 border-purple-600 text-purple-600 hover:bg-purple-50 font-semibold rounded-xl transition-all duration-300 flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                      New Question
+                    </button>
+                  )}
                 </div>
               </div>
 

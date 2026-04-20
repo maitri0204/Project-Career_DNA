@@ -11,11 +11,21 @@ import {
   getOTPExpiration,
 } from "../utils/otp";
 import { sendOTPEmail } from "../utils/email";
+import { verifyCaptcha } from "../utils/captcha";
 
 // POST /api/auth/signup
 export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { firstName, middleName, lastName, email, mobile, country, state, city } = req.body;
+    const { firstName, middleName, lastName, email, mobile, country, state, city, captchaToken, captchaAnswer } = req.body;
+
+    // Verify captcha (skip for resend OTP)
+    if (captchaToken) {
+      const answerNum = parseInt(captchaAnswer, 10);
+      if (isNaN(answerNum) || !verifyCaptcha(captchaToken, answerNum)) {
+        res.status(400).json({ message: "Invalid captcha. Please try again." });
+        return;
+      }
+    }
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
@@ -144,7 +154,16 @@ export const verifySignupOTP = async (
 // POST /api/auth/login
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email } = req.body;
+    const { email, captchaToken, captchaAnswer } = req.body;
+
+    // Verify captcha (skip for resend OTP)
+    if (captchaToken) {
+      const answerNum = parseInt(captchaAnswer, 10);
+      if (isNaN(answerNum) || !verifyCaptcha(captchaToken, answerNum)) {
+        res.status(400).json({ message: "Invalid captcha. Please try again." });
+        return;
+      }
+    }
 
     if (!email) {
       res.status(400).json({ message: "Email is required." });
