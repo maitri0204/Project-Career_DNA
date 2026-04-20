@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate } from "../middleware/auth";
 import { authorize } from "../middleware/authorize";
 import { USER_ROLE } from "../types/roles";
+import User from "../models/User";
 import {
   startTest,
   getInProgressAttempt,
@@ -47,5 +48,35 @@ router.get(
 
 // Shared — BUG-005 fix: authorization check added inside getResult controller
 router.get("/results/:id", authenticate, getResult);
+
+// Get user names by IDs (for admin payments page)
+router.post("/admin/users-by-ids", authenticate, authorize(USER_ROLE.ADMIN), async (req, res) => {
+  try {
+    const { user_ids } = req.body;
+    if (!Array.isArray(user_ids)) {
+      res.status(400).json({ message: "user_ids must be an array" });
+      return;
+    }
+    const users = await User.find({ _id: { $in: user_ids } }).select("firstName middleName lastName email mobile state city country").lean();
+    const userMap: Record<string, any> = {};
+    users.forEach((u: any) => {
+      userMap[u._id.toString()] = {
+        name: [u.firstName, u.middleName, u.lastName].filter(Boolean).join(" "),
+        firstName: u.firstName,
+        middleName: u.middleName || "",
+        lastName: u.lastName,
+        email: u.email || "",
+        mobile: u.mobile || "",
+        state: u.state || "",
+        city: u.city || "",
+        country: u.country || "India",
+      };
+    });
+    res.json({ users: userMap });
+  } catch (error) {
+    console.error("Error fetching users by IDs:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 export default router;
