@@ -194,7 +194,7 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
   doc.rect(margin, y, contentW, rowH, "S");
 
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(8);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
 
   let cx = margin;
@@ -222,7 +222,7 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
   doc.rect(margin, y, contentW, rowH, "S");
 
   doc.setTextColor(...navy);
-  doc.setFontSize(8);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
 
   cx = margin;
@@ -252,7 +252,7 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.2);
   doc.setTextColor(...darkGray);
-  doc.setFontSize(8);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
 
   // Row: Total Discount
@@ -316,14 +316,14 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
   doc.setFillColor(26, 35, 75);
   doc.rect(totalsTableX, y, totalsTableW, totRowH + 2, "F");
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text("Total Amount", totalsTableX + 3, y + 6.5);
   doc.text(`${payment.final_amount.toFixed(2)}`, totalsTableX + totalsTableW - 3, y + 6.5, { align: "right" });
 
   // Amount in words (left aligned, same row)
   doc.setTextColor(...lightGray);
-  doc.setFontSize(7);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "italic");
   doc.text(numberToWords(payment.final_amount), margin, y + 6.5);
 
@@ -340,7 +340,7 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
     doc.setLineWidth(0.2);
     doc.rect(margin, y, contentW, gstRowH, "FD");
     doc.setTextColor(...navy);
-    doc.setFontSize(7);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.text("Taxable Value", margin + 4, y + 6);
     if (isGujarat) {
@@ -430,7 +430,7 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...navy);
-  doc.text("Makarand Bhatt", sigX, sigStartY + 22, { align: "right" });
+  doc.text("Makrand Bhatt", sigX, sigStartY + 22, { align: "right" });
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...lightGray);
