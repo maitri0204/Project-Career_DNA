@@ -7,6 +7,8 @@ import axios from "axios";
 
 interface PaymentComponentProps {
   userId: string;
+  userName?: string;
+  userEmail?: string;
   testId: string;
   appId: string;
   amount: number; // in INR
@@ -44,6 +46,8 @@ const GST_RATE = 0.18;
 
 const PaymentComponent: React.FC<PaymentComponentProps> = ({
   userId,
+  userName,
+  userEmail,
   testId,
   appId,
   amount,
@@ -181,6 +185,8 @@ const PaymentComponent: React.FC<PaymentComponentProps> = ({
       // 2. Create order on backend
       const { data: order } = await api.post<OrderResult>("/create-order", {
         user_id: userId,
+        user_name: userName || undefined,
+        user_email: userEmail || undefined,
         test_id: testId,
         app_id: appId,
         amount,
