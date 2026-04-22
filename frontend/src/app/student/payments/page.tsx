@@ -18,6 +18,7 @@ interface Payment {
   razorpay_payment_id: string | null;
   status: string;
   created_at: string;
+  invoice_number?: string | null;
 }
 
 interface UserProfile {

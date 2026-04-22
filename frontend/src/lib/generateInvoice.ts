@@ -23,6 +23,7 @@ interface InvoicePayment {
   razorpay_payment_id?: string | null;
   status: string;
   created_at: string;
+  invoice_number?: string | null;
 }
 
 interface InvoiceUser {
@@ -69,7 +70,7 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
   const contentW = W - 2 * margin;
   const date = new Date(payment.created_at);
   const dateStr = date.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const invoiceNo = `ADM/${payment._id.slice(-6).toUpperCase()}/${date.getFullYear()}-${String(date.getFullYear() + 1).slice(-2)}`;
+  const invoiceNo = payment.invoice_number || `ADMIT/AS${payment._id.slice(-6).toUpperCase()}/${date.getFullYear()}-${String(date.getFullYear() + 1).slice(-2)}`;
   const assessmentName = ASSESSMENT_NAMES[appId] || appId;
   const isGujarat = (user.state || "").toLowerCase().includes("gujarat");
   const gstApplicable = payment.gst_applicable && (payment.gst_amount || 0) > 0;
