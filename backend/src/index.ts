@@ -37,8 +37,8 @@ app.use(cors({
     : ["http://localhost:3000"],
   credentials: true,
 }));
-app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Health check route
 app.get("/api/health", (_req: Request, res: Response) => {
