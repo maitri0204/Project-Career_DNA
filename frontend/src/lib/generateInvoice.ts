@@ -165,7 +165,7 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
 
   doc.setTextColor(...navy);
   doc.setFontSize(10);
-  doc.text("KAREER Studio", billByX + 6, y + 16);
+  doc.text("ADMITra", billByX + 6, y + 16);
 
   doc.setTextColor(...darkGray);
   doc.setFontSize(8);
@@ -173,7 +173,7 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
   doc.text("Suite #303, Rajshree Center, Opp. Hotel Effotel,", billByX + 6, y + 23);
   doc.text("Near Kalaghoda, Sayajigunj, Vadodara - 390020", billByX + 6, y + 29);
   doc.text("Gujarat, India", billByX + 6, y + 35);
-  doc.text("hello@kareerstudio.com | +91 7777 07 1711", billByX + 6, y + 41);
+  doc.text("hello@admitra.io | +91 7777 07 1711", billByX + 6, y + 41);
   doc.text("PAN: AAZFK7452R", billByX + 6, y + 47);
   doc.text("GST No: ASDFGHJKL", billByX + 6, y + 53);
 
@@ -444,7 +444,7 @@ export function generateInvoice({ payment, user, appId }: InvoiceOptions) {
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.text(
-    "Reg. Office: KAREER Studio, Suite #303, Rajshree Center, Opp. Hotel Effotel, Near Kalaghoda, Sayajigunj, Vadodara - 390020  |  hello@kareerstudio.com  |  +91 7777 07 1711",
+    "Reg. Office: KAREER Studio, Suite #303, Rajshree Center, Opp. Hotel Effotel, Near Kalaghoda, Sayajigunj, Vadodara - 390020  |  hello@admitra.io  |  +91 7777 07 1711",
     W / 2, footerY + 7,
     { align: "center" }
   );
