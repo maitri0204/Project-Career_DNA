@@ -128,7 +128,7 @@ export default function Home() {
             <button onClick={() => setShowPaymentModal(false)} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Complete Demo Payment</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Payment</h2>
             <p className="text-sm text-gray-500 mb-4">Use this payment flow for the Razorpay review and approval process.</p>
             <PaymentComponent
               userId={userData._id || userData.id || ""}
