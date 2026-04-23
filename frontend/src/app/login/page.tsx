@@ -42,7 +42,8 @@ function LoginPageContent() {
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr);
-        if (user.role === "ADMIN") router.replace("/admin/dashboard");
+        if (user.email?.toLowerCase() === "reviewer@admitra.io") router.replace("/");
+        else if (user.role === "ADMIN") router.replace("/admin/dashboard");
         else router.replace("/student/dashboard");
       } catch {}
     }
@@ -126,7 +127,8 @@ function LoginPageContent() {
       toast.success("Login successful!");
 
       setTimeout(() => {
-        if (user.role === "ADMIN") router.push("/admin/dashboard");
+        if (user.email?.toLowerCase() === "reviewer@admitra.io") router.push("/");
+        else if (user.role === "ADMIN") router.push("/admin/dashboard");
         else router.push("/student/dashboard");
       }, 800);
     } catch (error: any) {

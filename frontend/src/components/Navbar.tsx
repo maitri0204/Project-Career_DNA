@@ -62,7 +62,7 @@ export default function Navbar() {
         <div className="flex justify-between h-20 items-center">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/login" className="flex items-center group gap-2">
+            <Link href="/" className="flex items-center group gap-2">
               <Image
                 src="/career-dna-logo.png"
                 alt="Career DNA Profiler"
@@ -80,9 +80,9 @@ export default function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:space-x-2">
             <Link
-              href="/login"
+              href="/"
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
-                isActive("/login")
+                isActive("/")
                   ? "text-blue-600 bg-blue-50 shadow-sm"
                   : "text-gray-700 hover:text-blue-600 hover:bg-blue-50/50"
               }`}
@@ -196,8 +196,8 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-200 animate-fade-in">
           <div className="px-2 pt-2 pb-3 space-y-1 bg-white">
-            <Link href="/login" onClick={() => setMobileMenuOpen(false)}
-              className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/login") ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"}`}>
+            <Link href="/" onClick={() => setMobileMenuOpen(false)}
+              className={`block px-3 py-2 rounded-md text-base font-medium ${isActive("/") ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"}`}>
               Home
             </Link>
             {isLoggedIn ? (
