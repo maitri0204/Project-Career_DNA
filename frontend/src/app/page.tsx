@@ -10,7 +10,7 @@ const PAYMENT_API_URL = process.env.NEXT_PUBLIC_PAYMENT_API_URL || "http://local
 const REVIEWER_EMAIL = "reviewer@admitra.io";
 const APP_ID = "career_dna";
 const REVIEWER_TEST_ID = "career_dna_reviewer_payment";
-const REVIEWER_AMOUNT = 499;
+const REVIEWER_AMOUNT = 1;
 
 export default function Home() {
   const router = useRouter();
