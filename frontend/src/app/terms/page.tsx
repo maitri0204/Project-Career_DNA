@@ -134,7 +134,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-xl font-semibold text-gray-900">13. Governing Law</h2>
-          <p>These Terms shall be governed by the laws of India. Any disputes shall be subject to the jurisdiction of Ahmedabad.</p>
+          <p>These Terms shall be governed by the laws of India. Any disputes shall be subject to the jurisdiction of Vadodara.</p>
         </section>
 
         <section>
