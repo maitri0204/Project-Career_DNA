@@ -6,9 +6,10 @@ import Image from "next/image";
 import toast from "react-hot-toast";
 import { adminTestAPI } from "@/lib/api";
 import { TestResult } from "@/types";
+import { generateCareerDnaCapabilityReport } from "@/lib/reports/generateCareerDnaCapabilityReport";
 import {
   ArrowLeft, Loader2,
-  Trophy, Star, Award, TrendingUp,
+  Trophy, Star, Award, TrendingUp, Download,
 } from "lucide-react";
 
 /* ================================================================
@@ -254,6 +255,7 @@ export default function AdminResultDetailPage() {
   const [breakdowns, setBreakdowns] = useState<AllBreakdowns>({});
   const [studentName, setStudentName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!resultId) return;
@@ -327,9 +329,64 @@ export default function AdminResultDetailPage() {
 
       {/* ══ HEADER BANNER ══ */}
       <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 rounded-2xl p-8 text-white shadow-lg">
-        <div className="flex items-center gap-3 mb-3">
-          <Trophy className="w-8 h-8" />
-          <h1 className="text-3xl font-extrabold tracking-tight">Assessment Results</h1>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <Trophy className="w-8 h-8" />
+            <h1 className="text-3xl font-extrabold tracking-tight">Assessment Results</h1>
+          </div>
+          <button
+            onClick={async () => {
+              if (!result || !breakdowns.COGNITIVE || !breakdowns.APTITUDE) {
+                toast.error("Cognitive and Aptitude sections required for report");
+                return;
+              }
+              setDownloading(true);
+              try {
+                const cogParts = breakdowns.COGNITIVE.parts || [];
+                const aptParts = breakdowns.APTITUDE.parts || [];
+                await generateCareerDnaCapabilityReport({
+                  studentName: studentName || "Student",
+                  submittedAt: result.submittedAt
+                    ? new Date(result.submittedAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+                    : "—",
+                  traitScores: {
+                    VR: cogParts[0]?.percentage ?? 0,
+                    NR: cogParts[1]?.percentage ?? 0,
+                    SR: cogParts[2]?.percentage ?? 0,
+                    MP: cogParts[3]?.percentage ?? 0,
+                    LR: aptParts[0]?.percentage ?? 0,
+                    NA: aptParts[1]?.percentage ?? 0,
+                    VA: aptParts[2]?.percentage ?? 0,
+                    MA: aptParts[3]?.percentage ?? 0,
+                    CI: aptParts[4]?.percentage ?? 0,
+                  },
+                  otherSectionScores: {
+                    COGNITIVE: { score: breakdowns.COGNITIVE.totalScore, maxScore: breakdowns.COGNITIVE.maxScore, parts: cogParts },
+                    APTITUDE: { score: breakdowns.APTITUDE.totalScore, maxScore: breakdowns.APTITUDE.maxScore, parts: aptParts },
+                    PERSONALITY: { score: breakdowns.PERSONALITY?.totalScore || 0, maxScore: breakdowns.PERSONALITY?.maxScore || 100, parts: breakdowns.PERSONALITY?.parts || [], personalityType: breakdowns.PERSONALITY?.personalityType || "", personalityDimensions: breakdowns.PERSONALITY?.personalityDimensions || [] },
+                    CAREER_INTEREST: { score: breakdowns.CAREER_INTEREST?.totalScore || 0, maxScore: breakdowns.CAREER_INTEREST?.maxScore || 100, parts: breakdowns.CAREER_INTEREST?.parts || [], dominantCode: breakdowns.CAREER_INTEREST?.dominantCode || "" },
+                    EMOTIONAL_INTELLIGENCE: { score: breakdowns.EMOTIONAL_INTELLIGENCE?.totalScore || 0, maxScore: breakdowns.EMOTIONAL_INTELLIGENCE?.maxScore || 100, parts: breakdowns.EMOTIONAL_INTELLIGENCE?.parts || [] },
+                    LEARNING_STYLE: { score: breakdowns.LEARNING_STYLE?.totalScore || 0, maxScore: breakdowns.LEARNING_STYLE?.maxScore || 100, parts: breakdowns.LEARNING_STYLE?.parts || [], dominantCode: breakdowns.LEARNING_STYLE?.dominantCode || "" },
+                    BEHAVIORAL_SOCIAL: { score: breakdowns.BEHAVIORAL_SOCIAL?.totalScore || 0, maxScore: breakdowns.BEHAVIORAL_SOCIAL?.maxScore || 100, parts: breakdowns.BEHAVIORAL_SOCIAL?.parts || [] },
+                    STRESS_RESILIENCE: { score: breakdowns.STRESS_RESILIENCE?.totalScore || 0, maxScore: breakdowns.STRESS_RESILIENCE?.maxScore || 160, parts: breakdowns.STRESS_RESILIENCE?.parts || [] },
+                  },
+                });
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Failed to generate report");
+              } finally {
+                setDownloading(false);
+              }
+            }}
+            disabled={downloading}
+            className="flex items-center gap-2 bg-white/20 hover:bg-white/30 disabled:opacity-60 disabled:cursor-not-allowed transition-colors rounded-xl px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm"
+          >
+            {downloading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            {downloading ? "Generating..." : "Download Report"}
+          </button>
         </div>
         <p className="text-blue-200 text-sm">
           {studentName && <>{studentName} &middot; </>}
